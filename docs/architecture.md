@@ -205,7 +205,7 @@ Sans cloisonnement, l'air soufflé par le toit repartirait directement vers l'as
 | Limites | Dépend de l'espace libre entre cadres de rive et parois (faible dans la Nicot **[H]**) ; risque de court-circuit d'air par le haut | Jet d'air plus chaud directement sur le centre du couvain → surveiller le gradient ; pièce extérieure à isoler, à rendre étanche et à poser à chaque fois |
 | Ventilateurs plancher | Optionnels : 1–2 soufflantes radiales 40 × 40 × 10 mm dans le plancher pour aider le retour | Optionnels idem, placés au départ de la gaine |
 
-Débit de dimensionnement **[H]** : 5–15 m³/h (renouvellement du volume intérieur ~50 L toutes les 15–30 s), avec un écart air soufflé / couvain visé ≤ 2 °C en palier. À mesurer au banc avec les 5 sondes.
+Débit de dimensionnement **[H] — corrigé en Phase 1** : l'estimation initiale de 5–15 m³/h est **trop faible**. Pour apporter 95–150 W avec un air soufflé plafonné à 44 °C (écart de quelques degrés seulement avec le couvain), il faut de l'ordre de **80–120 m³/h** en recirculation. Prototype : soufflante de toit ≥ 30 m³/h et sonde d'air de retour pour mesurer le débit réel au banc ; c'est le premier point à valider (protocole Phase 1, essais E7–E8).
 
 ### 1.3 Description des blocs
 
