@@ -26,6 +26,7 @@ inline void appliquer_lecture(LectureSonde& s, bool lecture_ok, float t_brute_sa
         const float t = t_brute_sans_offset + s.offset;
         if (t < defauts::T_PLAUSIBLE_MIN || t > defauts::T_PLAUSIBLE_MAX) ok = false;
         if (ok) {
+            s.t_lue = t_brute_sans_offset;
             s.t_brute = t;
             s.filtre.ajouter(t);
             s.t = s.filtre.valeur();
@@ -33,7 +34,9 @@ inline void appliquer_lecture(LectureSonde& s, bool lecture_ok, float t_brute_sa
         }
     }
     if (!ok && s.echecs < 255) ++s.echecs;
-    s.valide = s.presente && s.filtre.taille() > 0 && s.echecs < defauts::ECHECS_AVANT_INVALIDE;
+    // Une absence ponctuelle au balayage compte comme un échec (lecture_ok = false) :
+    // la sonde reste valide sur sa dernière valeur jusqu'à 3 échecs consécutifs (6 s).
+    s.valide = s.filtre.taille() > 0 && s.echecs < defauts::ECHECS_AVANT_INVALIDE;
 }
 
 }  // namespace tv

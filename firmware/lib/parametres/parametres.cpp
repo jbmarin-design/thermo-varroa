@@ -40,6 +40,7 @@ uint32_t crc_parametres(const Parametres& p) {
     c = crc_champ(c, p.pwm_plancher_pct);
     c = crc_champ(c, p.rpm_nominal_toit);
     c = crc_champ(c, p.rpm_nominal_plancher);
+    c = crc_champ(c, p.puissance_max_pct);
     return c;
 }
 
@@ -76,9 +77,10 @@ Parametres parametres_defaut() {
     p.duree_palier_min = defauts::DUREE_PALIER_MIN;
     p.timeout_montee_min = defauts::TIMEOUT_MONTEE_MIN;
     p.pwm_toit_pct = defauts::PWM_TOIT_CHAUFFE_PCT;
-    p.pwm_plancher_pct = defauts::PWM_TOIT_CHAUFFE_PCT;
+    p.pwm_plancher_pct = defauts::PWM_PLANCHER_CHAUFFE_PCT;
     p.rpm_nominal_toit = defauts::RPM_NOMINAL_TOIT;
     p.rpm_nominal_plancher = defauts::RPM_NOMINAL_PLANCHER;
+    p.puissance_max_pct = defauts::PUISSANCE_MAX_PCT;
     parametres_sceller(p);
     return p;
 }
@@ -98,9 +100,12 @@ bool parametres_borner(Parametres& p) {
     m |= borner<uint32_t>(p.duree_palier_min, DUREE_PALIER_BORNE_MIN, DUREE_PALIER_BORNE_MAX);
     m |= borner<uint32_t>(p.timeout_montee_min, TIMEOUT_MONTEE_BORNE_MIN, TIMEOUT_MONTEE_BORNE_MAX);
     m |= borner<uint8_t>(p.pwm_toit_pct, PWM_BORNE_MIN_PCT, PWM_BORNE_MAX_PCT);
-    m |= borner<uint8_t>(p.pwm_plancher_pct, PWM_BORNE_MIN_PCT, PWM_BORNE_MAX_PCT);
+    // Plancher : 0 = soufflantes de plancher désactivées (essai comparatif du protocole E12).
+    // La soufflante du TOIT, elle, ne peut jamais descendre sous PWM_BORNE_MIN_PCT.
+    if (p.pwm_plancher_pct != 0) m |= borner<uint8_t>(p.pwm_plancher_pct, PWM_BORNE_MIN_PCT, PWM_BORNE_MAX_PCT);
     m |= borner<uint16_t>(p.rpm_nominal_toit, 500, 20000);
     m |= borner<uint16_t>(p.rpm_nominal_plancher, 500, 20000);
+    m |= borner<uint8_t>(p.puissance_max_pct, PUISSANCE_BORNE_MIN_PCT, PUISSANCE_BORNE_MAX_PCT);
     return m;
 }
 
@@ -126,6 +131,7 @@ const char* position_texte(Position p) {
         case Position::P2:        return "P2";
         case Position::P3:        return "P3";
         case Position::AIR:       return "air";
+        case Position::RETOUR:    return "retour";
         default:                  return "inconnue";
     }
 }
@@ -134,7 +140,7 @@ bool position_depuis_texte(const char* t, Position& p) {
     struct { const char* nom; Position pos; } table[] = {
         {"haut", Position::P1_HAUT}, {"centre", Position::P1_CENTRE}, {"bas", Position::P1_BAS},
         {"P1_haut", Position::P1_HAUT}, {"P1_centre", Position::P1_CENTRE}, {"P1_bas", Position::P1_BAS},
-        {"P2", Position::P2}, {"P3", Position::P3}, {"air", Position::AIR}, {"inconnue", Position::INCONNUE},
+        {"P2", Position::P2}, {"P3", Position::P3}, {"air", Position::AIR}, {"retour", Position::RETOUR}, {"inconnue", Position::INCONNUE},
     };
     for (const auto& x : table) {
         if (std::strcmp(t, x.nom) == 0) { p = x.pos; return true; }

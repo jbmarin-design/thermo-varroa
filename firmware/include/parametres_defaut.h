@@ -25,6 +25,16 @@ constexpr float HYST_HAUT              = 0.10f;  // chauffe OFF si Tmin >= consi
 constexpr float HYST_BORNE_MIN         = 0.05f;
 constexpr float HYST_BORNE_MAX         = 1.00f;
 
+// --- Plafond de puissance de l'élément (Phase 1, réglage de banc) -------------
+// Quand la régulation TOR demande la chauffe, le SSR n'est passant que pendant les
+// premiers PUISSANCE_MAX_PCT % de chaque fenêtre de 10 s. 100 % = tout-ou-rien pur.
+// Sert à limiter le dépassement de T air soufflé après coupure (marge 44,0 -> 45,0 °C
+// faible, inertie de l'élément) sans PID. Ce n'est PAS une régulation : un plafond fixe.
+constexpr uint8_t  PUISSANCE_MAX_PCT       = 60;   // [H] départ prudent au banc, à relever (protocole E5)
+constexpr uint8_t  PUISSANCE_BORNE_MIN_PCT = 20;
+constexpr uint8_t  PUISSANCE_BORNE_MAX_PCT = 100;
+constexpr uint32_t FENETRE_PUISSANCE_MS    = 10000;  // SSR zéro-crossing : 500 alternances par fenêtre
+
 // --- Comptage du palier ------------------------------------------------------
 constexpr float    T_PALIER_MIN            = 42.0f;  // TOUTES les sondes couvain >= ce seuil
 constexpr uint32_t STABILITE_ENTREE_PALIER_S = 5u * 60u;  // MONTÉE -> PALIER après 5 min stables
@@ -32,6 +42,16 @@ constexpr uint32_t DUREE_PALIER_MIN        = 120;   // minutes cumulées
 constexpr uint32_t DUREE_PALIER_BORNE_MIN  = 90;
 constexpr uint32_t DUREE_PALIER_BORNE_MAX  = 150;
 constexpr uint32_t PALIER_PERDU_MAX_MIN    = 30;    // cumul hors plage en PALIER -> DÉFAUT
+
+// --- Détections de cycle (architecture §2.2) -----------------------------------
+// « Chauffe inefficace » (MONTÉE) : chauffe > 80 % du temps sur 20 min avec Tmin couvain
+// qui progresse de moins de 0,5 °C -> DÉFAUT.
+constexpr uint32_t FENETRE_INEFFICACE_MIN   = 20;
+constexpr float    TAUX_CHAUFFE_INEFFICACE  = 0.80f;
+constexpr float    PROGRES_MIN_INEFFICACE   = 0.5f;
+// « Homogénéité insuffisante » (MONTÉE/PALIER) : la limite couvain (Tmax > 43,5 °C) coupe
+// la chauffe alors que Tmin < 42,0 °C, cumulé plus de 30 min -> DÉFAUT. [H]
+constexpr uint32_t HOMOGENEITE_MAX_MIN      = 30;
 
 // --- Limites de régulation (C1) : coupent la chauffe, non bloquantes ---------
 constexpr float T_COEUR_MAX_REG     = 43.5f;  // sonde couvain la plus chaude : au-delà, chauffe = 0
@@ -73,6 +93,7 @@ constexpr uint32_t PERIODE_JOURNAL_ACTIF_S   = 10;
 
 // --- Ventilation ------------------------------------------------------------------------
 constexpr uint8_t  PWM_TOIT_CHAUFFE_PCT = 80;   // [H] à ajuster au banc (débit nécessaire, cf. module-toit)
+constexpr uint8_t  PWM_PLANCHER_CHAUFFE_PCT = 80; // [H] idem, soufflantes du plancher
 constexpr uint8_t  PWM_BORNE_MIN_PCT    = 30;
 constexpr uint8_t  PWM_BORNE_MAX_PCT    = 100;
 constexpr uint8_t  PWM_BRASSAGE_PCT     = 60;
@@ -88,6 +109,25 @@ constexpr uint32_t FREQ_PWM_VENTILO_HZ  = 25000;
 // --- Enable dynamique du SSR (C3) ---------------------------------------------------------
 constexpr uint32_t FREQ_ENABLE_SSR_HZ = 500;   // signal carré (basculé en logiciel toutes les 1 ms) exigé par la pompe de charge
 constexpr uint32_t JETON_SSR_MAX_AGE_MS = 3000; // la boucle principale doit rafraîchir le jeton : sinon plus de signal
+
+// --- SSR collé (architecture §2.2 REFROIDISSEMENT, §3.1) ------------------------------------
+// Commande SSR à 0 depuis plus de SSR_COLLE_GRACE_S, soufflante du toit en marche :
+// si T air soufflé dépasse de SSR_COLLE_HAUSSE son minimum depuis la coupure -> DÉFAUT.
+constexpr uint32_t SSR_COLLE_GRACE_S        = 90;    // [H] inertie de l'élément après coupure
+constexpr float    SSR_COLLE_HAUSSE         = 0.5f;  // °C
+// En REFROIDISSEMENT (ventilateurs éventuellement arrêtés) : sonde couvain la plus chaude.
+constexpr uint32_t REFROID_GRACE_COUVAIN_MIN = 10;   // [H] inertie couvain après coupure
+constexpr float    REFROID_HAUSSE_COUVAIN    = 0.5f;
+
+// --- Conditions d'utilisation (architecture §2.4) : AVERTISSEMENT seulement en Phase 1 -----
+// Phase 1 : pas de sonde d'ambiance dédiée ; on contrôle le SHT45 sous le toit au départ
+// (à vide, il lit l'ambiance du local d'essai).
+constexpr float T_AMBIANCE_MIN = 12.0f;
+constexpr float T_AMBIANCE_MAX = 32.0f;
+
+// --- Bouton -----------------------------------------------------------------------------------
+constexpr uint32_t BOUTON_ANTIREBOND_MS = 50;
+constexpr uint32_t BOUTON_APPUI_LONG_MS = 3000;  // appui long = arrêt opérateur (MONTÉE/PALIER)
 
 // --- Watchdog logiciel -------------------------------------------------------------------------
 constexpr uint32_t WATCHDOG_S = 5;

@@ -38,6 +38,10 @@ enum RaisonCoupure : uint8_t {
     COUPURE_CONSIGNE      = 1 << 3,  // consigne atteinte (hystérésis TOR)
 };
 
+/// Plafond de puissance : vrai si, à l'instant t_ms, le SSR peut conduire dans la fenêtre
+/// de FENETRE_PUISSANCE_MS (début de fenêtre = conduction). pct >= 100 : toujours vrai.
+bool fenetre_puissance(uint32_t t_ms, uint8_t pct);
+
 class RegulationTOR {
 public:
     void reinitialiser();

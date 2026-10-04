@@ -13,7 +13,8 @@ namespace broche {
 constexpr uint8_t OW_P1   = 32;  // embase P1 (peigne centre, 3 sondes) — pull-up 2,2 kΩ externe
 constexpr uint8_t OW_P2   = 33;  // embase P2 (peigne bord gauche, 1 sonde)
 constexpr uint8_t OW_P3   = 25;  // embase P3 (peigne bord droit, 1 sonde)
-constexpr uint8_t OW_TOIT = 4;   // T_air (grille de soufflage) — câblage interne au toit
+constexpr uint8_t OW_TOIT = 4;   // T_air (grille de soufflage) + T_retour (bande d'aspiration),
+                                 // câblage interne au toit ; distinguées par leur position d'étalonnage
 
 // --- I2C : SHT45 (0x44) + RTC DS3231 (0x68) ---------------------------------
 constexpr uint8_t I2C_SDA = 21;
@@ -26,9 +27,12 @@ constexpr uint8_t SD_MOSI = 23;
 constexpr uint8_t SD_CS   = 5;   // broche de strapping : pull-up 10 kΩ obligatoire (module µSD)
 
 // --- Chauffe -------------------------------------------------------------------
-constexpr uint8_t SSR_ENABLE   = 13;  // signal carré 500 Hz (logiciel) -> pompe de charge -> entrée SSR
+constexpr uint8_t SSR_ENABLE   = 13;  // signal carré 500 Hz (esp_timer 1 ms) -> pompe de charge -> Q3 -> SSR
 constexpr uint8_t RELAIS_TRIP  = 17;  // HAUT = le MCU OUVRE la chaîne C4 (ne peut jamais la fermer)
-constexpr uint8_t C4_ETAT      = 16;  // retour d'état chaîne C4 via optocoupleur : BAS = chaîne fermée
+                                      // pull-down 100 kΩ : flottant au boot = pas d'ouverture
+constexpr uint8_t C4_ETAT      = 16;  // phototransistor de l'optocoupleur U3 (PC817) dont la LED est en
+                                      // parallèle sur la bobine de K1 ; pull-up 10 kΩ + 10 nF :
+                                      // BAS = K1 excité = chaîne C4 armée ; fil coupé = HAUT = « ouverte »
 
 // --- Ventilation ----------------------------------------------------------------
 constexpr uint8_t PWM_TOIT        = 26;
@@ -37,6 +41,11 @@ constexpr uint8_t PWM_PLANCHER_B  = 14;  // émet un bref signal au boot : sans 
 constexpr uint8_t TACH_TOIT       = 34;  // entrée seule : pull-up 10 kΩ externe vers 3,3 V + RC
 constexpr uint8_t TACH_PLANCHER_A = 35;  // idem
 constexpr uint8_t TACH_PLANCHER_B = 15;  // pull-up 10 kΩ (strapping MTDO : HAUT au boot = normal)
+constexpr uint8_t ALIM_VENTILOS   = 12;  // HAUT = 12 V appliqué aux 3 soufflantes (Q5 NPN + P-MOSFET Q4).
+                                         // Strapping MTDI : DOIT être BAS au boot -> pull-down 100 kΩ
+                                         // (jamais de pull-up : le module ne démarrerait plus).
+                                         // Nécessaire : un ventilateur 4 fils à PWM 0 % peut continuer
+                                         // de tourner (comportement non normalisé).
 // GPIO 39 laissé LIBRE : errata ESP32 n°3.11 — avec l'ADC actif (NTC élément sur GPIO 36),
 // les entrées 36/39 voient de fausses impulsions : interdit pour un tachymètre de sécurité.
 

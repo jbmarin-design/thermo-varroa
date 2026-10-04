@@ -5,6 +5,13 @@
 
 namespace tv {
 
+bool fenetre_puissance(uint32_t t_ms, uint8_t pct) {
+    if (pct >= 100) return true;
+    if (pct == 0) return false;
+    const uint32_t phase = t_ms % defauts::FENETRE_PUISSANCE_MS;
+    return phase < (defauts::FENETRE_PUISSANCE_MS / 100u) * pct;
+}
+
 void RegulationTOR::reinitialiser() {
     tor_ = false;
     lim_couvain_ = false;

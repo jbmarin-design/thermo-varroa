@@ -6,8 +6,9 @@
 //     commande SSR = regulation.sortie() ET securite.autorise_chauffe()
 //
 // Phase 1 : les défauts ci-dessous sont VERROUILLÉS (acquittement local par
-// bouton, seulement si la cause a disparu). La liste complète (sonde figée,
-// pente, cohérence, SSR collé, watchdog externe) arrive en Phase 2.
+// bouton, seulement si la cause a disparu). Le SSR collé est détecté dès la
+// Phase 1 (hausse de température commande à 0). La liste complète (sonde
+// figée, pente, cohérence entre sondes, watchdog externe) arrive en Phase 2.
 //
 // La chaîne matérielle C4 (comparateur 45 °C) et C5 (bimétal + TCO) restent
 // TOTALEMENT indépendantes de ce code.
@@ -40,11 +41,18 @@ enum CodeDefaut : uint32_t {
     DEF_PALIER_PERDU      = 1u << 13,  // posé par machine_etats
     DEF_PARAMETRES        = 1u << 14,  // paramètres NVS corrompus (valeurs par défaut chargées)
     DEF_AUTOTEST          = 1u << 15,  // auto-test de départ KO
+    DEF_SSR_COLLE         = 1u << 16,  // température qui monte alors que la commande est à 0
+    DEF_CHAUFFE_INEFFICACE = 1u << 17, // posé par machine_etats (MONTÉE)
+    DEF_HOMOGENEITE       = 1u << 18,  // posé par machine_etats (limite couvain empêche le palier)
 };
+
+/// Texte court d'UN bit de défaut (journal, console).
+const char* defaut_texte(uint32_t bit);
 
 /// Contexte fourni par la machine à états (lecture seule pour securite).
 struct ContexteSecurite {
     bool cycle_actif = false;      // MONTÉE ou PALIER ou REFROIDISSEMENT
+    bool refroidissement = false;  // état REFROIDISSEMENT (surveillance SSR collé sur le couvain)
     bool chauffe_demandee = false; // sortie régulation (pour le cumul de durée)
     bool ssr_commande = false;     // commande effective appliquée au cycle précédent
     uint8_t pwm_pct[NB_VENTILOS] = {0, 0, 0};
@@ -60,6 +68,10 @@ public:
 
     /// Pose un défaut venant d'un autre module (timeout, palier perdu, auto-test).
     void declarer(uint32_t code) { defauts_ |= code; }
+
+    /// Début de cycle (sortie d'ATTENTE) : remet à zéro les compteurs propres au cycle
+    /// (durée de chauffe cumulée, suivi SSR collé, ventilateurs). N'efface AUCUN défaut.
+    void debut_cycle();
 
     /// Vrai si aucun défaut verrouillé : la chauffe PEUT être autorisée.
     bool autorise_chauffe() const { return defauts_ == DEF_AUCUN; }
@@ -93,6 +105,11 @@ private:
     uint32_t ventilo_depuis_ms_[NB_VENTILOS] = {0, 0, 0};
     uint8_t pwm_prec_[NB_VENTILOS] = {0, 0, 0};
     uint32_t chauffe_cumulee_ms_ = 0;
+    // SSR collé
+    uint32_t ssr_off_ms_ = 0;          // durée depuis la dernière commande SSR à 1
+    float air_min_off_ = 1000.0f;      // T air minimale depuis la fin du délai de grâce
+    uint32_t refroid_ms_ = 0;
+    float couvain_min_refroid_ = 1000.0f;
 };
 
 }  // namespace tv

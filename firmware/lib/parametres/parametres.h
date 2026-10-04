@@ -8,9 +8,11 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "types_mesures.h"
+
 namespace tv {
 
-constexpr uint16_t VERSION_SCHEMA_PARAMETRES = 1;
+constexpr uint16_t VERSION_SCHEMA_PARAMETRES = 2;  // v2 : ajout puissance_max_pct
 
 /// Paramètres de traitement. Toute écriture passe par parametres_borner().
 struct Parametres {
@@ -24,6 +26,7 @@ struct Parametres {
     uint8_t pwm_plancher_pct = 0;
     uint16_t rpm_nominal_toit = 0;      // tr/min à 100 % (relevé au banc)
     uint16_t rpm_nominal_plancher = 0;
+    uint8_t puissance_max_pct = 0;      // plafond de puissance de l'élément (fenêtre 10 s)
     uint32_t crc = 0;                   // CRC32 de tout ce qui précède
 };
 
@@ -46,7 +49,7 @@ uint32_t crc32(const uint8_t* donnees, size_t n, uint32_t crc_init = 0);
 // Étalonnage des sondes DS18B20 (offset par ID, position physique)
 // -----------------------------------------------------------------------------
 
-enum class Position : uint8_t { INCONNUE = 0, P1_HAUT, P1_CENTRE, P1_BAS, P2, P3, AIR };
+// enum class Position : défini dans types_mesures.h (propriété de la sonde).
 
 const char* position_texte(Position p);
 bool position_depuis_texte(const char* t, Position& p);
