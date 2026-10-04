@@ -16,7 +16,12 @@
 | D5 | Trou de vol | Fermé par une **porte Nicot classique à petites aérations**. |
 | D6 | Consignes | Révisées d'après la littérature (§2.2) : **42,0 °C au point de couvain le plus froid pendant 2 h**, rampe ~20 min, paramétrable 41,0–43,5 °C pour calibration. |
 | D7 | Sécurité | Régulation et chrono du palier sur la sonde couvain **la plus froide** ; coupures sur la sonde **la plus chaude**. Coupure matérielle indépendante relevée à **45,0 °C**. |
-| D8 | Énergie | Groupe électrogène et bilan acceptés par l'apiculteur. |
+| D8 | Énergie | Groupe électrogène et bilan acceptés par l'apiculteur ; il peut tourner seul ~10 h sur les ruchers. |
+| D9 | Boucle d'air | **Option A retenue** (tout interne, aucune pièce extérieure). Circulation **avant ↔ arrière, en boucle**, dans le sens des ruelles (§1.2). |
+| D10 | Toit | Le module de toit est construit **dans un toit Nicot existant** (stock disponible) : on l'équipe à l'intérieur, passages de câbles par presse-étoupes étanches. |
+| D11 | Saisons | Traitement en **septembre** et au **printemps**, ambiance 20–25 °C (parfois plus). **Pas de traitement en hiver** (§2.4). |
+| D12 | Reines | ~5 min par ruche pour trouver et encager → ~1 h 40 par lot de 20, à faire avant le départ. |
+| D13 | Données | **Stockage local sur une passerelle de lot** (mini-PC), qui décharge vers le serveur dès qu'une connexion est disponible (§4.5). |
 
 ### Base scientifique des consignes
 
@@ -117,7 +122,31 @@ Ordre de pose : (1) plancher fermé sous le corps, (2) porte Nicot à aérations
                  porte Nicot à petites aérations (fermée)
 ```
 
-#### Boucle d'air : deux options à comparer au banc (Phase 1)
+#### Boucle d'air retenue : option A, circulation avant ↔ arrière (D9)
+
+L'air ne peut circuler facilement que **dans le sens des ruelles** (entre deux rayons) : la boucle est donc orientée dans ce sens. Vue de côté, dans l'axe d'une ruelle :
+
+```
+        AVANT                                        ARRIÈRE
+   ┌───────────────── module de toit (toit Nicot équipé) ──────────────┐
+   │ ◄── aspiration ◄── gaine de chauffe (élément + soufflante) ◄──    │
+   │  fente d'aspiration                          fente de soufflage   │
+   │  (toute la largeur)                          (toute la largeur)   │
+   ├───▲───────────────────────────────────────────────────▼─────────┤
+   │   ▲  l'air remonte                              l'air descend ▼   │
+   │   ▲  dans les ruelles                         dans les ruelles ▼  │
+   │   ▲  côté avant         rayons (couvain)            côté arrière ▼ │
+   ├───▲───────────────────────────────────────────────────▼─────────┤
+   │   ◄──────────── plénum du plancher fermé (≤ 2 cm) ◄──────────     │
+   └───────────────────────────────────────────────────────────────────┘
+```
+
+- La fente de soufflage et la fente d'aspiration font **toute la largeur** du toit : chaque ruelle reçoit sa part d'air, ce qui donne l'uniformité recherchée.
+- Le sens (avant → arrière ou l'inverse) se choisira au banc ; on peut aussi **inverser périodiquement** le sens de la soufflante pour lisser les gradients **[H]** (à tester).
+- **À vérifier sur les cotes Nicot** : l'orientation des cadres par rapport à l'entrée. Si les cadres sont parallèles à la façade, la boucle se fait de gauche à droite au lieu d'avant ↔ arrière ; le principe est le même.
+- Les ventilateurs optionnels du plancher, s'ils sont utiles, restent **à l'intérieur** du plancher fermé.
+
+#### Pour mémoire : options comparées avant décision
 
 | | **Option A — Soufflage périphérique, retour central (recommandée en premier essai)** | **Option B — Soufflage central, retour par conduit latéral** |
 |---|---|---|
@@ -134,8 +163,8 @@ Débit de dimensionnement **[H]** : 5–15 m³/h (renouvellement du volume inté
 |---|---|---|---|
 | **Nœud ruche** | Régulation et sécurités logicielles d'**une** ruche, autonome | ESP32 (module WROOM-32E ou S3), bus 1-Wire sondes, I²C (SHT45, FRAM, RTC en Ph.1), µSD (peuplée en Ph.1, optionnelle ensuite), transceiver RS-485 isolé (non peuplé en Ph.1), LED tricolore, bouton départ/acquittement, sortie SSR via « enable dynamique », 3 embases M8 pour les peignes (un bus 1-Wire chacune), entrée tachymètre soufflante, retour d'état de la chaîne de sécurité | Ph.1 |
 | **Chaîne de sécurité matérielle** | Coupure de chauffe **indépendante du MCU** | Comparateur analogique + NTC dédiée à la sortie d'air (seuil 45,0 °C, auto-maintien, réarmement manuel), relais électromécanique en série avec le SSR, bimétal réarmement manuel + fusible thermique (TCO) sur l'élément | Ph.1 (bimétal/TCO), Ph.2 (comparateur) |
-| **Module de toit** | Remplacer le toit Nicot ; produire la chaleur et la faire circuler sans point chaud accessible | Coque isolée au format du toit Nicot (impression 3D ou thermoformage + mousse), gaine de chauffe (élément 230 V classe II + soufflante radiale 12 V), grille de soufflage, compartiment électronique côté froid, embases M8 pour les peignes, sondes intégrées (air soufflé, élément, NTC sécu, SHT45) | Ph.1 |
-| **Plancher fermé** | Rendre la ruche étanche par le bas et servir de plénum de retour | Pièce imprimée 3D ≤ 2 cm au format du plancher Nicot, joint périphérique, logements optionnels pour 1–2 soufflantes 40 × 40 × 10 mm | Ph.1 |
+| **Module de toit** | Remplacer le toit Nicot ; produire la chaleur et la faire circuler sans point chaud accessible | **Toit Nicot existant** équipé à l'intérieur (D10) : isolant, gaine de chauffe (élément 230 V classe II + soufflante radiale 12 V), grille de soufflage, compartiment électronique côté froid, embases M8 pour les peignes, sondes intégrées (air soufflé, élément, NTC sécu, SHT45) | Ph.1 |
+| **Plancher fermé** | Rendre la ruche étanche par le bas et servir de plénum de retour | ≤ 2 cm au format du plancher Nicot (~50 × 40 cm). Deux fabrications possibles : **plaque découpée** (PVC expansé ou polycarbonate) + joint périphérique, ou **impression 3D en 2–4 segments** assemblés (aucune imprimante courante n'imprime 50 × 40 d'une pièce). Logements optionnels pour 1–2 soufflantes 40 × 40 × 10 mm | Ph.1 |
 | **Peignes de sondes** | Mesurer le couvain, indépendants du toit | Lames fines (fibre de verre ou inox, ~2 mm) glissées dans les ruelles, portant les sondes ; câble vers connecteur M8 détrompé (§4.2) | Ph.1 |
 | **Couveuse à reines** | Maintenir les reines à 38 °C pendant le traitement + 24 h, **hors des ruches** | Boîtier isolé recevant des **cages de reine Nicot standard** (1 en prototype, 20 en lot), module Peltier réversible + dissipateur, sonde dédiée + bimétal, alimentation 12/24 V autonome (§4.3 bis) | Ph.3 |
 | **Contrôleur de lot** | Coordination de 20 nœuds : départs échelonnés, budget de puissance, horodatage commun, journal centralisé, télémétrie | ESP32-S3, RS-485 maître, RTC DS3231, µSD industrielle, écran + boutons (départ lot, acquittements), lecture compteur d'énergie, lien Ethernet/Wi-Fi vers le routeur | Ph.5 (Ph.4 en version mono-ruche) |
@@ -281,6 +310,20 @@ Boîtier **séparé des ruches**, avec son propre petit MCU (ESP32-C3 ou équiva
 - **Lissage** : la période de chauffe de 10 s de chaque nœud est décalée (créneaux attribués par le contrôleur) → la puissance instantanée appelée ≈ la puissance moyenne.
 - **Budget** : puissance plafond paramétrable (défaut 3,5 kW pour un groupe 5–6 kVA) ; aucun nouveau jeton si le compteur dépasse 85 % du plafond.
 - **Perte du contrôleur ou du bus (battement de cœur absent > 10 s)** : les nœuds en PALIER ou REFROIDISSEMENT poursuivent seuls ; les nœuds en MONTÉE plafonnent leur rapport cyclique à 50 % ; les nœuds en ATTENTE ne démarrent pas. Pire cas résiduel : surcharge du groupe → coupure → retour au cas « perte d'alimentation », sûr.
+
+### 2.4 Saisons et conditions d'utilisation (D11)
+
+| Période | Verdict | Raison |
+|---|---|---|
+| **Septembre** | **Retenu** | Couvain encore présent mais en diminution, varroas concentrés dans le couvain operculé, ambiance 20–25 °C qui réduit la puissance nécessaire. **Point de vigilance** : c'est le couvain des abeilles d'hiver. La surmortalité des œufs et jeunes larves (Sandrock et al. 2024) tombe sur cette génération → traiter **début septembre** plutôt que fin, pour laisser à la colonie le temps de compenser, et réserver le traitement aux colonies fortes. |
+| **Printemps** | **Retenu** | Ambiance clémente, colonie en développement capable de compenser une perte de jeune couvain. Éviter la période d'essaimage et la pleine miellée (impact sur la récolte constaté par Sandrock et al.). |
+| **Été en pleine miellée** | Déconseillé | Perte de récolte, colonie très populeuse (forte ventilation contre la chauffe). |
+| **Hiver / hors couvain** | **Exclu** | Accord avec l'intuition de l'apiculteur : la thermothérapie vise le couvain operculé ; sans couvain elle perd son intérêt, et un couvain d'hiver endommagé compromet les abeilles de la reprise. Ouvrir la ruche et l'enfermer par temps froid est en soi un stress. |
+
+Conditions d'utilisation (verrouillées par l'auto-test) **[H]** :
+- **Ambiance 12–32 °C**. En dessous, la puissance de 250 W risque de ne pas suffire ; au-dessus, la colonie est déjà en lutte thermique et la marge vers 45 °C se réduit.
+- **Pas de soleil direct sur la ruche** pendant le traitement (ombrage ou traitement en fin de journée).
+- Pas de pluie au moment de la pose (ouverture de la ruche, connecteurs).
 
 ---
 
@@ -434,6 +477,7 @@ Dimensionnement **[H]** (à confirmer en Ph.1) :
 | Lien | Choix | Alternatives écartées / options |
 |---|---|---|
 | Nœud ↔ contrôleur | **RS-485 Modbus RTU isolé**, 19 200–115 200 bauds, chaînage dans le même faisceau que le 24 V | CAN (TWAI natif ESP32) : très robuste mais outillage de diagnostic moins répandu ; **ESP-NOW** (sans fil) : évite un câble mais le faisceau 230 V est de toute façon posé, et le filaire est plus déterministe. Gardé en repli. |
+| Stockage local de lot (D13) | **Passerelle mini-PC** dans le coffret (type Raspberry Pi 5 avec SSD, ou mini-PC basse consommation), reliée au contrôleur de lot : elle stocke **toutes** les données du lot et les **décharge vers le serveur** dès qu'une connexion existe (4G sur place, ou plus tard en rentrant à portée d'un Wi-Fi) | La µSD du contrôleur reste en copie de secours. La passerelle n'a **aucun** rôle dans la régulation ni la sécurité : si elle plante, le traitement continue. |
 | Contrôleur → serveur | **4G LTE-M / Cat-1** via **routeur industriel** (Ethernet ou Wi-Fi vers le contrôleur), publication sortante MQTT/TLS ou HTTPS, VPN possible | Module modem intégré (type SIM7080G) : moins de consommation mais moins d'outils de supervision. Volume estimé : ~2 ko/min pour 20 ruches à 1 point/min → quelques Mo par jour, compatible LTE-M. |
 | Zones blanches | **Mode dégradé natif** : tout est journalisé localement et remonté plus tard, le traitement n'en dépend pas | **LoRa** (P2P vers une passerelle privée, portée 2–10 km **[H]** selon relief) : pertinent seulement si une passerelle peut être installée près des ruchers ; **satellite** (type Iridium SBD, messages ~300 octets, coût par message) : réservé aux **alarmes** et à un état de synthèse, pas aux séries de données. |
 | Configuration | Locale uniquement : USB ou point d'accès Wi-Fi activé par appui long | Aucune configuration à distance (principe de lecture seule). |
@@ -596,9 +640,7 @@ Note : les **tests unitaires** firmware vivent dans `firmware/test/` (convention
 
 Points tranchés en révision 2 : voir « Décisions validées » en tête de document. Restent :
 
-1. **Cotes de la ruche Nicot** : dimensions intérieures du corps, du toit d'origine et du plancher, espace entre cadres de rive et parois (décide entre l'option A et B de la boucle d'air), présence de hausses pendant le traitement. Le plus simple : mesurer une ruche, ou fournir la référence exacte.
-2. **Saison et ambiance visées** : avec ou sans couvain, plage de températures extérieures (dimensionne la puissance et le besoin de refroidir la couveuse à reines).
-3. **Organisation des reines** : temps disponible pour trouver et encager 20 reines par lot ; le bon moment pour les réintroduire (fin des 24 h).
-4. **Groupe électrogène** : peut-il tourner seul ~10 h sur les ruchers (autonomie réservoir, risque de vol) ?
-5. **Couverture 4G** des ruchers et disposition d'un lot (espacement des ruches, longueur de câble).
-6. **Banc d'essai Phase 1** : lieu (miellerie avec secteur ?), ruche Nicot dédiée, accès à une imprimante 3D pour le plancher et les pièces du toit, puis colonie test pour les premiers essais avec abeilles (après validation Phase 2).
+1. **Cotes Nicot** (disponibles en ligne ; l'apiculteur peut les fournir) : intérieur du corps, du toit et du plancher, **orientation des cadres par rapport à l'entrée** (fixe le sens de la boucle d'air), hauteur libre sous le toit Nicot pour loger gaine + électronique, présence de hausses pendant le traitement.
+2. **Fabrication du plancher fermé** : plaque découpée ou impression 3D en segments (matériel à acquérir, aucune imprimante disponible).
+3. **Banc d'essai Phase 1** : lieu (miellerie avec secteur ?), ruche Nicot dédiée, puis colonie test pour les premiers essais avec abeilles (après validation Phase 2).
+4. **Disposition d'un lot** sur un rucher type (espacement des ruches, longueur de câble jusqu'au coffret).
