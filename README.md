@@ -6,13 +6,17 @@ Traitement thermique anti-varroa pour ruches Nicot (plastique, fond grillagé) �
 
 | Paramètre | Valeur |
 |---|---|
-| Palier couvain | 40–41 °C à cœur, 2–3 h, ventilation douce |
-| Protection reine | Micro-cage à 38 °C pendant 24 h |
+| Palier couvain | 42,0 °C au point de couvain le plus froid pendant 2 h, rampe ~20 min (paramétrable 41,0–43,5 °C) |
+| Architecture | Module de toit (électronique + chauffe + soufflante) + plancher fermé imprimé 3D, boucle d'air forcée |
+| Sondes | Peignes connectables indépendants du toit, 5 points couvain en prototype ; sondes air, élément, sécurité et SHT45 intégrées au toit |
+| Protection reine | Couveuse séparée à 38 °C (traitement + 24 h), cages de reine Nicot standard, Peltier réversible |
+| Trou de vol | Fermé, porte Nicot à petites aérations |
+| Sécurité | Régulation sur la sonde la plus froide, coupures sur la plus chaude ; coupure matérielle indépendante à 45,0 °C |
 | Cible | Varroas phorétiques + varroas en cellules operculées |
 | Organisation | 100 ruches, traitées par lots de 20, sur site (rucher isolé) |
 | Mode | « Pose et repars » : automate local souverain, télésurveillance en lecture seule |
-| Énergie | Séquencement par sous-lots de 4–5 ruches ; groupe 5–6 kVA ou batterie + onduleur + solaire |
-| Électronique | ESP32, sondes température / hygrométrie (type SHT), relais, logging local |
+| Énergie | Séquencement par sous-lots de 4–5 ruches ; groupe 5–6 kVA (+ tampon batterie pour l'électronique et la couveuse) |
+| Électronique | ESP32 par ruche, bus RS-485 vers un contrôleur de lot, logging local |
 
 ## Arborescence
 

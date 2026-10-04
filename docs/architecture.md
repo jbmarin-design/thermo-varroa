@@ -1,7 +1,29 @@
 # Architecture — Thermothérapie varroa instrumentée
 
-> Statut : **proposition à valider** (Prompt 0 — cadrage). Aucun code n'est écrit tant que ce document n'est pas validé.
+> Statut : **révision 2 — décisions apiculteur intégrées** (Prompt 0 — cadrage). Aucun code n'est écrit tant que ce document n'est pas validé.
 > Les valeurs marquées **[H]** sont des **hypothèses non vérifiées** : elles doivent être confirmées par mesure (Phase 1) ou par l'apiculteur (section 7).
+
+---
+
+## Décisions validées (révision 2)
+
+| # | Sujet | Décision |
+|---|---|---|
+| D1 | Emplacement de la chauffe | **Pas de plancher chauffant** : le plancher Nicot fait ~2 cm. Tout est intégré dans un **module de toit** qui remplace le toit Nicot : électronique, élément chauffant, ventilateur, sécurités. |
+| D2 | Répartition de la chaleur | **Boucle d'air forcée** : le toit chauffe et souffle, l'air traverse les cadres, un **plancher fermé imprimé en 3D** (≤ 2 cm, le plancher Nicot n'étant pas hermétique) sert de plénum de retour. Deux schémas de retour comparés au §1.2. |
+| D3 | Sondes | **Indépendantes du toit** : peignes de sondes posés d'abord dans le couvain, puis le toit est posé et les sondes s'y **branchent** par connecteurs étanches détrompés (§4.2). Prototype : 5 points couvain (centre, 2 bords, haut, bas). |
+| D4 | Reine | **Boîtier séparé, hors du toit** (le toit est la zone la plus chaude), régulé à 38 °C pendant le traitement et 24 h après, recevant une **cage de reine Nicot standard** (reine + accompagnatrices + candi). |
+| D5 | Trou de vol | Fermé par une **porte Nicot classique à petites aérations**. |
+| D6 | Consignes | Révisées d'après la littérature (§2.2) : **42,0 °C au point de couvain le plus froid pendant 2 h**, rampe ~20 min, paramétrable 41,0–43,5 °C pour calibration. |
+| D7 | Sécurité | Régulation et chrono du palier sur la sonde couvain **la plus froide** ; coupures sur la sonde **la plus chaude**. Coupure matérielle indépendante relevée à **45,0 °C**. |
+| D8 | Énergie | Groupe électrogène et bilan acceptés par l'apiculteur. |
+
+### Base scientifique des consignes
+
+- Kablau et al. (FU Berlin) : 43,7 °C pendant 2 h, très efficace contre le varroa ; effets mesurés sur les ouvrières émergentes (baisse de la réponse au sucre, mais durée de vie allongée, butinage inchangé).
+- Sandrock et al. 2024 (*Journal of Pest Science* 97:1433–1450) : 42,5 °C pendant 130 min après une rampe de 20 min, efficace, mais **surmortalité des œufs et jeunes larves**, baisse temporaire du nombre d'ouvrières et récolte de miel plus faible.
+
+**Compromis assumé** : la fenêtre efficace (42–43,5 °C au couvain pendant ~2 h) coûte du jeune couvain. On démarre au bas de la fenêtre (42,0 °C) et on calibre par essais (Phase 7 : comptages varroa et couvain avant/après).
 
 ---
 
@@ -9,7 +31,7 @@
 
 1. **L'automate local est souverain.** Chaque ruche est pilotée par son propre nœud, qui décide seul de chauffer ou non. Le contrôleur de lot ne fait que **coordonner** (budget de puissance, départs échelonnés, collecte de données). Le serveur distant est en **lecture seule** : aucun canal de commande entrant n'existe dans le firmware.
 2. **Sûr par défaut (fail-safe).** Tout organe de chauffe est « normalement ouvert » : perte d'alimentation, plantage MCU, câble coupé, sonde absente → **pas de chauffe**. Un traitement incomplet est acceptable ; une surchauffe ne l'est jamais.
-3. **Défense en profondeur.** La sécurité ne repose jamais sur le seul logiciel : une chaîne matérielle indépendante du MCU coupe la chauffe au-delà de **43,0 °C** au point le plus chaud accessible aux abeilles.
+3. **Défense en profondeur.** La sécurité ne repose jamais sur le seul logiciel : une chaîne matérielle indépendante du MCU coupe la chauffe au-delà de **45,0 °C** au point le plus chaud accessible aux abeilles (sortie d'air du module de toit).
 4. **Même matériel de la mono-ruche au lot de 20.** Le « nœud ruche » de la Phase 1 est la brique unitaire de la Phase 5 ; on ajoute autour un contrôleur de lot, un bus et un coffret de puissance, sans refaire le nœud.
 5. **Données scientifiques exploitables.** Horodatage fiable, identifiants de sonde, paramètres de traitement et version firmware sont journalisés avec chaque mesure.
 
@@ -39,12 +61,19 @@ flowchart LR
     end
 
     subgraph RUCHE["× 20 — Ruche instrumentée"]
-        NOEUD["Nœud ruche ESP32<br/>régulation + sécurités logicielles"]
-        SECU["Chaîne sécurité matérielle<br/>comparateur 43 °C + relais + bimétal + TCO"]
-        SSR["SSR zéro-crossing 230 V"]
-        PLANCHER["Plancher chauffant<br/>élément 250 W + ventilateur + diffuseur"]
-        SONDES["Sondes : 2× couvain, air soufflé,<br/>élément, SHT45 (T/HR)"]
-        CAGE["Cage reine 38 °C<br/>élément 12 V ~10 W"]
+        subgraph TOIT["Module de toit"]
+            NOEUD["Nœud ruche ESP32<br/>régulation + sécurités logicielles"]
+            SECU["Chaîne sécurité matérielle<br/>comparateur 45 °C + relais + bimétal + TCO"]
+            SSR["SSR zéro-crossing 230 V"]
+            CHAUFFE["Gaine de chauffe<br/>élément 250 W + soufflante 12 V"]
+            STOIT["Sondes intégrées : air soufflé,<br/>élément, NTC sécu, SHT45"]
+        end
+        PEIGNES["Peignes de sondes couvain<br/>(5 points, connectables M8)"]
+        PLENUM["Plancher fermé imprimé 3D<br/>(plénum de retour d'air)"]
+    end
+
+    subgraph REINES["Couveuse à reines (hors ruches)"]
+        CAGE["Boîtier 38 °C<br/>cage(s) Nicot standard<br/>Peltier réversible + sonde"]
     end
 
     SERVEUR["Serveur (lecture seule)<br/>ingestion + base + tableaux de bord"]
@@ -53,11 +82,14 @@ flowchart LR
     PROT --> ALIM24 --> TAMPON
     D1 -->|230 V| SSR
     SECU -->|en série| SSR
-    SSR --> PLANCHER
+    SSR --> CHAUFFE
+    CHAUFFE -->|air chaud| PLENUM
+    PLENUM -->|retour| CHAUFFE
     ALIM24 -->|24 V| NOEUD
+    TAMPON -->|24 V, 24 h| CAGE
     NOEUD --> SSR
-    NOEUD --> CAGE
-    SONDES --> NOEUD
+    STOIT --> NOEUD
+    PEIGNES -->|connecteurs| NOEUD
     CTRL <-->|RS-485 Modbus RTU<br/>chaînage 20 nœuds| NOEUD
     CTRL --> ROUTEUR -.->|MQTT/HTTPS sortant uniquement| SERVEUR
     CPT -->|Modbus| CTRL
@@ -65,35 +97,47 @@ flowchart LR
 
 ### 1.2 Vue en coupe d'une ruche équipée
 
+Ordre de pose : (1) plancher fermé sous le corps, (2) porte Nicot à aérations, (3) peignes de sondes glissés entre les cadres, (4) module de toit posé, (5) branchement des peignes sur le toit, (6) auto-test puis départ.
+
 ```
-                ┌──────────────────────────────────────┐
-                │  Toit d'origine (Ph.1) / capot isolé │  ← boîtier nœud fixé à l'extérieur (Ph.1)
-                │  intégrant le boîtier nœud (Ph.6)    │     ou intégré au capot (Ph.6)
-                ├──────────────────────────────────────┤
-                │  Couvre-cadre percé : passage sondes │──── SHT45 (T/HR) sous couvre-cadre
-                ├──────────────────────────────────────┤
-                │  ║  ║  ║  ║ T1 ║  ║  ║  ║  ║  ║     │  T1 : couvain HAUT (≈ 5 cm sous tête de cadre)
-   Corps Nicot  │  ║  ║  ║  ║    ║  ║  ║  ║  ║  ║     │       entre cadres centraux
-   (cadres)     │  ║  ║  ║  ║ T2 ║  ║  ║  ║  ║  ║     │  T2 : couvain BAS (≈ 15 cm sous tête)
-                │  ║  ║  ║  ║    ║  ║  ║  ║  ║  ║     │
-                ├──────────────────────────────────────┤
-                │ ▒▒▒▒ Diffuseur perforé (grille) ▒▒▒▒ │  T3 + NTC sécu : air soufflé / face supérieure
-   Plancher     │   ↑ air tiède homogénéisé ↑          │       du diffuseur = point le plus chaud
-   chauffant    │ [VENTILO]→ ═══ tapis silicone ═══ ←┐ │  T4 + bimétal + TCO : collés sur l'élément
-   (remplace ou │   ← reprise d'air (recirculation) ─┘ │
-   obture le    │  isolant sous l'élément              │
-   fond grillagé)└──────────────────────────────────────┘
-                   trou de vol réduit (cf. point ouvert)
+               ┌─────────────────────────────────────────┐
+  MODULE       │ [Nœud ESP32][SSR][sécu C4]   isolant    │  boîtier électronique, côté froid
+  DE TOIT      │  ┌─[aspiration]──[soufflante]──[élément]─┐│  T4 + bimétal + TCO sur l'élément
+  (remplace    │  └─────────────── gaine de chauffe ──────┘│
+  le toit      │ ▒▒ grille de soufflage (inaccessible) ▒▒ │  T3 + NTC sécu C4 : air soufflé
+  Nicot)       │  ●M8  ●M8  ●M8   SHT45                   │  embases des peignes + T/HR
+               ├──────↓──────↓──────↓────────────────────┤
+               │  ║  ║ P2 ║  ║ P1 ║  ║  ║ P3 ║  ║  ║      │  P1 : peigne CENTRE (haut / centre / bas)
+  Corps Nicot  │  ║  ║ ●  ║  ║ ●  ║  ║  ║ ●  ║  ║  ║      │  P2, P3 : peignes BORDS du couvain
+  (cadres)     │  ║  ║    ║  ║ ●  ║  ║  ║    ║  ║  ║      │  → 5 points couvain
+               │  ║  ║    ║  ║ ●  ║  ║  ║    ║  ║  ║      │
+               ├─────────────────────────────────────────┤
+  Plancher     │  ══ plénum de retour, fermé, ≤ 2 cm ══   │  imprimé 3D, étanche
+  fermé 3D     └─────────────────────────────────────────┘
+                 porte Nicot à petites aérations (fermée)
 ```
+
+#### Boucle d'air : deux options à comparer au banc (Phase 1)
+
+| | **Option A — Soufflage périphérique, retour central (recommandée en premier essai)** | **Option B — Soufflage central, retour par conduit latéral** |
+|---|---|---|
+| Trajet | Le toit souffle l'air chaud vers le bas le long des parois → descente jusqu'au plancher fermé → l'air remonte par les ruelles centrales du nid → aspiration au centre du toit | Le toit souffle vers le bas par les ruelles centrales → l'air est collecté par le plancher → remonte par une **gaine latérale extérieure** (imprimée 3D, clipsée sur le corps) vers l'aspiration du toit |
+| Avantages | Tout est interne, aucune pièce extérieure ; l'air arrive au couvain déjà brassé (pas de jet direct) ; le plancher n'a qu'à être fermé | Débit maîtrisé, retour franc, pas dépendant de l'espace entre cadres de rive et parois |
+| Limites | Dépend de l'espace libre entre cadres de rive et parois (faible dans la Nicot **[H]**) ; risque de court-circuit d'air par le haut | Jet d'air plus chaud directement sur le centre du couvain → surveiller le gradient ; pièce extérieure à isoler, à rendre étanche et à poser à chaque fois |
+| Ventilateurs plancher | Optionnels : 1–2 soufflantes radiales 40 × 40 × 10 mm dans le plancher pour aider le retour | Optionnels idem, placés au départ de la gaine |
+
+Débit de dimensionnement **[H]** : 5–15 m³/h (renouvellement du volume intérieur ~50 L toutes les 15–30 s), avec un écart air soufflé / couvain visé ≤ 2 °C en palier. À mesurer au banc avec les 5 sondes.
 
 ### 1.3 Description des blocs
 
 | Bloc | Rôle | Contenu | Phase d'introduction |
 |---|---|---|---|
-| **Nœud ruche** | Régulation et sécurités logicielles d'**une** ruche, autonome | ESP32 (module WROOM-32E ou S3), bus 1-Wire sondes, I²C (SHT45, FRAM, RTC en Ph.1), µSD (peuplée en Ph.1, optionnelle ensuite), transceiver RS-485 isolé (non peuplé en Ph.1), LED tricolore, bouton départ/acquittement, sortie SSR via « enable dynamique », sortie MOSFET cage reine, entrée tachymètre ventilateur, retour d'état de la chaîne de sécurité | Ph.1 |
-| **Chaîne de sécurité matérielle** | Coupure de chauffe **indépendante du MCU** | Comparateur analogique + NTC dédiée (seuil 43,0 °C, auto-maintien, réarmement manuel), relais électromécanique en série avec le SSR, bimétal réarmement manuel + fusible thermique (TCO) sur l'élément | Ph.1 (bimétal/TCO), Ph.2 (comparateur) |
-| **Plancher chauffant** | Produire et répartir la chaleur sans point chaud accessible | Caisson au format Nicot, tapis silicone 230 V classe II, ventilateur 12 V à roulement à billes en recirculation, diffuseur perforé, isolant inférieur | Ph.1 |
-| **Cage reine** | Maintenir la reine à 38 °C pendant 24 h, hors volume chauffé à 41 °C | Micro-enceinte isolée, élément résistif 12 V ~10 W (TBTS), 1 sonde dédiée + bimétal 40 °C | Ph.3 |
+| **Nœud ruche** | Régulation et sécurités logicielles d'**une** ruche, autonome | ESP32 (module WROOM-32E ou S3), bus 1-Wire sondes, I²C (SHT45, FRAM, RTC en Ph.1), µSD (peuplée en Ph.1, optionnelle ensuite), transceiver RS-485 isolé (non peuplé en Ph.1), LED tricolore, bouton départ/acquittement, sortie SSR via « enable dynamique », 3 embases M8 pour les peignes (un bus 1-Wire chacune), entrée tachymètre soufflante, retour d'état de la chaîne de sécurité | Ph.1 |
+| **Chaîne de sécurité matérielle** | Coupure de chauffe **indépendante du MCU** | Comparateur analogique + NTC dédiée à la sortie d'air (seuil 45,0 °C, auto-maintien, réarmement manuel), relais électromécanique en série avec le SSR, bimétal réarmement manuel + fusible thermique (TCO) sur l'élément | Ph.1 (bimétal/TCO), Ph.2 (comparateur) |
+| **Module de toit** | Remplacer le toit Nicot ; produire la chaleur et la faire circuler sans point chaud accessible | Coque isolée au format du toit Nicot (impression 3D ou thermoformage + mousse), gaine de chauffe (élément 230 V classe II + soufflante radiale 12 V), grille de soufflage, compartiment électronique côté froid, embases M8 pour les peignes, sondes intégrées (air soufflé, élément, NTC sécu, SHT45) | Ph.1 |
+| **Plancher fermé** | Rendre la ruche étanche par le bas et servir de plénum de retour | Pièce imprimée 3D ≤ 2 cm au format du plancher Nicot, joint périphérique, logements optionnels pour 1–2 soufflantes 40 × 40 × 10 mm | Ph.1 |
+| **Peignes de sondes** | Mesurer le couvain, indépendants du toit | Lames fines (fibre de verre ou inox, ~2 mm) glissées dans les ruelles, portant les sondes ; câble vers connecteur M8 détrompé (§4.2) | Ph.1 |
+| **Couveuse à reines** | Maintenir les reines à 38 °C pendant le traitement + 24 h, **hors des ruches** | Boîtier isolé recevant des **cages de reine Nicot standard** (1 en prototype, 20 en lot), module Peltier réversible + dissipateur, sonde dédiée + bimétal, alimentation 12/24 V autonome (§4.3 bis) | Ph.3 |
 | **Contrôleur de lot** | Coordination de 20 nœuds : départs échelonnés, budget de puissance, horodatage commun, journal centralisé, télémétrie | ESP32-S3, RS-485 maître, RTC DS3231, µSD industrielle, écran + boutons (départ lot, acquittements), lecture compteur d'énergie, lien Ethernet/Wi-Fi vers le routeur | Ph.5 (Ph.4 en version mono-ruche) |
 | **Coffret de lot** | Distribution et protection électrique | Disjoncteur général, DDR 30 mA type A, arrêt d'urgence coup-de-poing sur contacteur général, 4 départs disjonctés (1 par sous-lot), prises IP67, alimentation 24 V DC + tampon LiFePO4, compteur d'énergie Modbus | Ph.5 |
 | **Faisceau** | Relier coffret ↔ ruches | Par ruche : câble H07RN-F 3G1,5 (230 V chauffe) + câble 4 conducteurs blindé (24 V, 0 V, A, B) chaîné de ruche en ruche | Ph.5 |
@@ -117,7 +161,7 @@ flowchart LR
 - le prototype Phase 1 *est* la brique de série, ce qui valide la sécurité une fois pour toutes ;
 - surcoût : ~20 ESP32 + transceivers, soit quelques centaines d'euros **[H]**, négligeable devant le coût d'une colonie perdue.
 
-> ⚠️ Écart avec `MARCHE_A_SUIVRE.md` (Prompt 5 : « 1 sonde + 1 relais par ruche ») : **une seule sonde par ruche ne permet ni de détecter une sonde incohérente, ni de surveiller le point le plus chaud**. Minimum recommandé en série : 2 sondes couvain + 1 sonde air soufflé + NTC de sécurité matérielle. Voir point ouvert n° 8.
+> ⚠️ Écart avec `MARCHE_A_SUIVRE.md` (Prompt 5 : « 1 sonde + 1 relais par ruche ») : **une seule sonde par ruche ne permet ni de détecter une sonde incohérente, ni de surveiller le point le plus chaud**. Prototype : 5 points couvain ; série : minimum 3 points couvain (réduction décidée après essais) + air soufflé + NTC de sécurité matérielle.
 
 ---
 
@@ -135,7 +179,7 @@ Base de code unique PlatformIO (framework ESP-IDF ou Arduino-ESP32 sur FreeRTOS)
 | `regulation` | nœud | PID (ou PI) en cascade : boucle lente sur T cœur, sortie limitée par une boucle sur T air soufflé ; anti-windup ; rampe de consigne ; sortie = rapport cyclique sur période de 10 s (SSR zéro-crossing) | haute |
 | `machine_etats` | nœud | États ATTENTE → MONTÉE → PALIER → REFROIDISSEMENT → FIN / DÉFAUT (§2.2) ; persistance de l'état et des compteurs en FRAM | moyenne |
 | `reine` | nœud | Second canal de régulation 38 °C / 24 h, mini-machine à états propre, sécurités propres | moyenne |
-| `parametres` | les deux | Lecture/écriture NVS, **CRC**, version de schéma, **bornes figées à la compilation** (ex. consigne palier ∈ [39,0 ; 41,5] °C, impossible à dépasser par configuration) | — |
+| `parametres` | les deux | Lecture/écriture NVS, **CRC**, version de schéma, **bornes figées à la compilation** (ex. consigne palier ∈ [41,0 ; 43,5] °C, impossible à dépasser par configuration) | — |
 | `journal` | les deux | Enregistrement horodaté (CSV + en-tête de métadonnées), événements, résumé de cycle ; écriture FRAM immédiate des événements critiques ; µSD en tampon | basse |
 | `horloge` | les deux | RTC, synchronisation (contrôleur → nœuds via bus ; contrôleur ← NTP/GNSS si dispo) | basse |
 | `bus` | les deux | Modbus RTU : esclave (nœud), maître (contrôleur), battement de cœur 1 s | moyenne |
@@ -155,19 +199,21 @@ Valeurs par défaut des paramètres (toutes paramétrables **dans des bornes fig
 
 | Paramètre | Défaut | Commentaire |
 |---|---|---|
-| `T_CONSIGNE_PALIER` | 40,5 °C | milieu de la plage 40–41 °C |
-| `T_PALIER_MIN` | 40,0 °C | seuil de comptage du temps de palier (sur la **plus froide** des sondes couvain) |
-| `T_COEUR_MAX_REG` | 41,5 °C | au-delà : chauffe forcée à 0 (non bloquant) |
-| `T_COEUR_DEFAUT` | 42,0 °C pendant 60 s | → DÉFAUT |
-| `T_AIR_MAX_REG` | 42,0 °C | limite de la boucle air soufflé |
-| `T_AIR_DEFAUT` | 42,5 °C pendant 10 s | → DÉFAUT (le matériel coupe à 43,0 °C) |
-| `PENTE_RAMPE` | 0,1 °C/min sur la consigne | évite le choc thermique et le dépassement |
-| `DUREE_PALIER` | 150 min (borne 120–180) | temps **cumulé** au-dessus de `T_PALIER_MIN` |
+| `T_CONSIGNE_PALIER` | 42,3 °C | consigne régulée sur la sonde couvain la plus froide ; borne figée [41,0 ; 43,5] °C |
+| `T_PALIER_MIN` | 42,0 °C | seuil de comptage du temps de palier : **toutes** les sondes couvain ≥ ce seuil |
+| `T_COEUR_MAX_REG` | 43,5 °C | sonde couvain la plus chaude : au-delà, chauffe forcée à 0 (non bloquant) |
+| `T_COEUR_DEFAUT` | 44,0 °C pendant 60 s | sonde couvain la plus chaude → DÉFAUT |
+| `T_AIR_MAX_REG` | 44,0 °C | limite de la boucle air soufflé |
+| `T_AIR_DEFAUT` | 44,5 °C pendant 10 s | → DÉFAUT (le matériel coupe à 45,0 °C) |
+| `PENTE_RAMPE` | ~0,35 °C/min sur la consigne | montée en ~20 min une fois l'air à température (cf. Sandrock et al.) ; la durée réelle dépend de la masse thermique |
+| `DUREE_PALIER` | 120 min (borne 90–150) | temps **cumulé** avec toutes les sondes couvain ≥ `T_PALIER_MIN` |
 | `TIMEOUT_MONTEE` | 150 min | au-delà : « palier non atteint » |
 | `T_FIN_REFROID` | 37,0 °C | fin du refroidissement |
 | `TIMEOUT_REFROID` | 90 min | |
 | `DUREE_CHAUFFE_MAX` | 6 h | durée absolue max chauffe active, toutes phases |
 | `ECART_SONDES_MAX` | 3,0 °C en palier | incohérence entre sondes couvain **[H]** à ajuster en Ph.1 |
+
+> **Pourquoi « plus froide » pour réguler et « plus chaude » pour couper** : le palier ne commence qu'une fois que *tout* le couvain instrumenté a atteint la consigne — on ne coupe donc jamais parce que le cœur est en retard. Les coupures, elles, surveillent la zone la plus exposée. Si l'écart entre la plus froide et la plus chaude empêche d'atteindre 42,0 °C partout sans dépasser 43,5 °C ailleurs, c'est la **circulation d'air** qui est en cause (option A/B, débit), pas les seuils : le cycle passe en DÉFAUT « homogénéité insuffisante » plutôt que de surchauffer.
 
 ```mermaid
 stateDiagram-v2
@@ -181,7 +227,7 @@ stateDiagram-v2
 
     [*] --> ATTENTE : démarrage / reset
     ATTENTE --> MONTEE : départ demandé ET auto-test OK ET jeton puissance
-    MONTEE --> PALIER : T couvain min ≥ 40,0 °C stable 5 min
+    MONTEE --> PALIER : T couvain min ≥ 42,0 °C stable 5 min
     MONTEE --> DEFAUT : timeout montée (palier non atteint)
     PALIER --> REFROID : temps cumulé ≥ DUREE_PALIER
     PALIER --> DEFAUT : palier perdu > 30 min cumulées
@@ -199,19 +245,19 @@ stateDiagram-v2
 #### Détail des états
 
 **ATTENTE** — chauffe interdite, ventilateur arrêté, acquisition et journal actifs (période 60 s).
-- Auto-test : toutes les sondes présentes (CRC 1-Wire OK, ID connus et étalonnés), valeurs plausibles ([−10 ; 60] °C), T couvain dans [15 ; 39] °C (sinon sonde mal placée ou colonie anormale), chaîne de sécurité matérielle fermée (lecture du retour d'état), ventilateur testé (tachymètre), paramètres valides (CRC), RTC valide, alimentation présente.
+- Auto-test : **tous les peignes branchés** (une sonde absente ou un connecteur débranché = départ refusé, LED indiquant l'embase en cause), toutes les sondes présentes (CRC 1-Wire OK, ID connus et étalonnés), valeurs plausibles ([−10 ; 60] °C), T couvain dans [15 ; 39] °C (sinon sonde mal placée ou colonie anormale), chaîne de sécurité matérielle fermée (lecture du retour d'état), ventilateur testé (tachymètre), paramètres valides (CRC), RTC valide, alimentation présente.
 - µSD absente ou bus absent = **avertissement** (LED orange), pas de blocage en mono-ruche ; en mode lot, l'absence de bus empêche le départ.
 - Sortie → MONTÉE : départ (bouton local en mono-ruche, ordre de lot + jeton en mode lot) **ET** auto-test OK.
 
-**MONTÉE** — ventilateur à vitesse douce, consigne en rampe de `T couvain initiale` vers 40,5 °C ; régulation en cascade (la puissance est limitée pour que T air soufflé ≤ 42,0 °C) ; journal toutes les 10 s.
-- → PALIER : T couvain **min** ≥ 40,0 °C pendant 5 min consécutives.
+**MONTÉE** — ventilateur à vitesse douce, consigne en rampe de `T couvain initiale` vers 42,3 °C ; régulation en cascade (la puissance est limitée pour que T air soufflé ≤ 44,0 °C) ; journal toutes les 10 s.
+- → PALIER : T couvain **min** ≥ 42,0 °C pendant 5 min consécutives.
 - → DÉFAUT : `TIMEOUT_MONTEE` dépassé (« palier non atteint » : élément HS, ruche ouverte, sonde hors couvain, puissance insuffisante par temps froid) ; ou défaut de sécurité (§3.1).
 - Détection « chauffe inefficace » : rapport cyclique > 80 % pendant 20 min avec ΔT couvain < 0,5 °C → DÉFAUT.
 
-**PALIER** — consigne 40,5 °C, chronomètre de palier **cumulatif** : il ne compte que lorsque T couvain min ≥ 40,0 °C **et** T couvain max ≤ 41,5 °C.
+**PALIER** — consigne 42,3 °C, chronomètre de palier **cumulatif** : il ne compte que lorsque T couvain min ≥ 42,0 °C **et** T couvain max ≤ 43,5 °C.
 - → REFROIDISSEMENT : temps cumulé ≥ `DUREE_PALIER`.
-- Chute sous 40,0 °C : comptage suspendu, régulation continue ; si le temps cumulé hors plage dépasse 30 min → DÉFAUT « palier perdu » (traitement déclaré incomplet).
-- T couvain max > 41,5 °C : chauffe forcée à 0 jusqu'à retour < 41,0 °C (non bloquant, journalisé).
+- Chute sous 42,0 °C : comptage suspendu, régulation continue ; si le temps cumulé hors plage dépasse 30 min → DÉFAUT « palier perdu » (traitement déclaré incomplet).
+- T couvain max > 43,5 °C : chauffe forcée à 0 jusqu'à retour < 43,0 °C (non bloquant, journalisé). Si cette limitation empêche durablement la plus froide d'atteindre 42,0 °C → DÉFAUT « homogénéité insuffisante ».
 
 **REFROIDISSEMENT** — chauffe interdite, ventilateur en brassage pendant 15 min puis arrêté (la colonie reprend la main). Vérifie que la chaleur décroît réellement.
 - → FIN : T couvain max ≤ 37,0 °C, ou `TIMEOUT_REFROID` atteint avec décroissance constatée (avertissement journalisé).
@@ -220,13 +266,14 @@ stateDiagram-v2
 **FIN** — chauffe interdite, résumé de cycle écrit (durée montée, temps cumulé de palier, T max atteintes par sonde, énergie estimée, défauts/avertissements), LED verte fixe. Attend un acquittement local pour revenir en ATTENTE (**aucun redémarrage automatique**).
 
 **DÉFAUT** — état **verrouillé** :
-- SSR commandé à 0, relais de sécurité série ouvert par le MCU, élément de cage reine non concerné sauf défaut propre à ce canal ;
+- SSR commandé à 0, relais de sécurité série ouvert par le MCU (la couveuse à reines, indépendante, continue) ;
 - ventilateur maintenu en brassage si le défaut est une surtempérature (casse le point chaud près de l'élément), arrêté sinon (ex. défaut ventilateur) ;
 - LED rouge + code de défaut, alarme remontée par télémétrie ;
 - sortie **uniquement** par acquittement **sur site** (bouton), et seulement si la cause a disparu ; retour en ATTENTE, jamais directement en chauffe. La télésurveillance ne peut pas acquitter.
 
-#### Canal reine (mini-machine indépendante, Phase 3)
-`ATTENTE → MONTÉE (vers 38,0 °C) → MAINTIEN (24 h cumulées dans [37,5 ; 38,5] °C) → FIN`, + `DÉFAUT` (coupure logicielle à 39,0 °C, bimétal matériel ~40 °C **[H]**). Un défaut du canal reine n'arrête pas le canal couvain et inversement, mais les deux sont signalés.
+#### Couveuse à reines (contrôleur propre, Phase 3)
+Boîtier **séparé des ruches**, avec son propre petit MCU (ESP32-C3 ou équivalent) et sa propre régulation : il ne dépend pas du module de toit, qui ne fonctionne que pendant ~4–5 h alors que les reines doivent rester 24 h à 38 °C.
+`ATTENTE → MONTÉE (vers 38,0 °C) → MAINTIEN (24 h cumulées dans [37,5 ; 38,5] °C) → FIN`, + `DÉFAUT` (coupure logicielle à 39,0 °C, bimétal matériel ~40 °C **[H]**). En mode Peltier, la même boucle pilote chauffage **et** refroidissement (pont en H). Les cages sont **mises en place avant le départ** du traitement de la ruche correspondante et réintroduites après la FIN des 24 h. Un défaut de la couveuse n'arrête pas les ruches et inversement, mais les deux sont signalés.
 
 ### 2.3 Contrôleur de lot (Phase 5)
 
@@ -239,25 +286,26 @@ stateDiagram-v2
 
 ## 3. Stratégie de sécurité en couches
 
-Objectif : **aucune surface ni aucun flux d'air accessible aux abeilles au-dessus de 43 °C**, même en cas de défaillance simple (plantage logiciel, SSR collé en court-circuit, sonde déplacée, ventilateur bloqué).
+Objectif : **aucune surface ni aucun flux d'air accessible aux abeilles au-dessus de 45 °C**, même en cas de défaillance simple (plantage logiciel, SSR collé en court-circuit, sonde déplacée, ventilateur bloqué). Le palier visé (42–43,5 °C) laisse ~1,5 °C de marge entre la limite de régulation et la coupure matérielle : la marge est faible, d'où l'importance de l'étalonnage des sondes et des essais à vide.
 
 | Couche | Moyen | Seuil | Indépendant du MCU ? | Réarmement |
 |---|---|---|---|---|
-| **C0 — Conception** | Densité de puissance limitée (~0,15 W/cm²), élément sous diffuseur inaccessible aux abeilles, brassage d'air, bornes de paramètres figées à la compilation | — | oui | — |
-| **C1 — Logiciel régulation** | Cascade cœur/air, limites `T_COEUR_MAX_REG` / `T_AIR_MAX_REG` | 41,5 / 42,0 °C | non | automatique |
-| **C2 — Logiciel supervision** (module `securite`) | Seuils, plausibilité, cohérence, sonde figée, palier non atteint, SSR collé, ventilateur, durée max, watchdog | 42,0 / 42,5 °C | non | DÉFAUT verrouillé, acquittement local |
+| **C0 — Conception** | Élément enfermé dans la gaine du toit derrière une grille inaccessible aux abeilles, brassage d'air, bornes de paramètres figées à la compilation | — | oui | — |
+| **C1 — Logiciel régulation** | Cascade cœur/air, limites `T_COEUR_MAX_REG` / `T_AIR_MAX_REG` | 43,5 / 44,0 °C | non | automatique |
+| **C2 — Logiciel supervision** (module `securite`) | Seuils, plausibilité, cohérence, sonde figée, palier non atteint, homogénéité, SSR collé, ventilateur, durée max, watchdog | 44,0 / 44,5 °C | non | DÉFAUT verrouillé, acquittement local |
 | **C3 — Watchdogs** | Watchdog de tâches ESP-IDF + watchdog **externe** (circuit dédié type TPL5010/STWD100) + **enable dynamique** du SSR | — | partiellement | reset MCU → ATTENTE |
-| **C4 — Coupure matérielle air** | Comparateur analogique + NTC dédiée au point le plus chaud (face supérieure du diffuseur) → relais électromécanique **en série** avec le SSR, à auto-maintien | **43,0 °C** | **oui** | **manuel** (bouton sur boîtier) |
+| **C4 — Coupure matérielle air** | Comparateur analogique + NTC dédiée au point le plus chaud accessible (grille de soufflage du toit) → relais électromécanique **en série** avec le SSR, à auto-maintien | **45,0 °C** | **oui** | **manuel** (bouton sur boîtier) |
 | **C5 — Coupure matérielle élément** | Thermostat bimétal à réarmement manuel collé sur l'élément + fusible thermique (TCO) non réarmable en série | à fixer en Ph.1 **[H]** (≈ T élément max en régime normal + 10 °C, typiquement 60–75 °C) | **oui** | manuel / remplacement |
 | **C6 — Électrique** | DDR 30 mA, disjoncteurs, arrêt d'urgence sur contacteur général, éléments classe II, connectique IP67 | — | oui | manuel |
 
 ### 3.1 Sécurités logicielles (C1–C3) — détail
 
-- **Seuils** : voir tableau des paramètres §2.2. Les seuils de défaut sont évalués sur valeur filtrée **et** sur valeur brute (une valeur brute > 43 °C répétée 3 fois = DÉFAUT immédiat).
+- **Seuils** : voir tableau des paramètres §2.2. Les seuils de défaut sont évalués sur valeur filtrée **et** sur valeur brute (une valeur brute > 45 °C répétée 3 fois = DÉFAUT immédiat).
 - **Sonde HS** : CRC 1-Wire en échec 3 fois consécutives, valeur hors [−10 ; 60] °C, valeur « usine » (85,0 °C ou −127 °C pour un DS18B20), ID inconnu → DÉFAUT si la sonde est critique (couvain, air soufflé), avertissement sinon (SHT45).
 - **Sonde incohérente** :
   - écart entre les deux sondes couvain > `ECART_SONDES_MAX` en PALIER ;
-  - T couvain > T air soufflé + 1 °C pendant la chauffe (physiquement impossible si la chaleur vient du plancher → sonde inversée ou défaillante) ;
+  - T couvain > T air soufflé + 1 °C pendant la chauffe (physiquement impossible si la chaleur vient du toit → sonde inversée ou défaillante) ;
+  - peigne débranché en cours de cycle (perte de toutes les sondes d'une embase) → DÉFAUT immédiat ;
   - pente > 2 °C/min ;
   - valeur figée (variation < 0,05 °C pendant 10 min alors que la chauffe est active).
 - **Sonde déplacée hors du couvain** (cas dangereux : elle lit froid, la régulation pousse) : couverte par la limite air soufflé (C1/C2/C4) et par la détection « chauffe inefficace ».
@@ -270,8 +318,8 @@ Objectif : **aucune surface ni aucun flux d'air accessible aux abeilles au-dessu
 
 ### 3.2 Sécurités matérielles indépendantes (C4–C5)
 
-- **C4** : NTC 10 kΩ 1 % + pont de résistances 0,1 % + comparateur à hystérésis → précision visée ±0,3 °C autour de 43,0 °C **[H]**, nettement meilleure qu'un bimétal (tolérance typique ±3 à ±5 °C, inutilisable seul pour un seuil à 43 °C). Le relais de sécurité est **excité au repos** (sécurité positive) : perte d'alimentation de la carte, NTC débranchée (lecture « froid » à éviter → câblage choisi pour qu'une NTC coupée ou en court-circuit fasse retomber le relais) ou dépassement → relais ouvert. Contact d'auto-maintien + bouton de réarmement. Le MCU lit l'état du relais et peut l'ouvrir, **jamais le forcer fermé**.
-- **Test de la chaîne C4 à la pose** : bouton « test sécurité » qui commute une résistance simulant 44 °C → le relais doit retomber (LED), puis réarmement manuel. Fait partie de la check-list de pose.
+- **C4** : NTC 10 kΩ 1 % + pont de résistances 0,1 % + comparateur à hystérésis → précision visée ±0,3 °C autour de 45,0 °C **[H]**, nettement meilleure qu'un bimétal (tolérance typique ±3 à ±5 °C, inutilisable seul pour un seuil à 45 °C). La NTC C4 est **intégrée au toit** (non connectable) pour qu'un peigne mal branché ne puisse jamais neutraliser la coupure matérielle. Le relais de sécurité est **excité au repos** (sécurité positive) : perte d'alimentation de la carte, NTC débranchée (lecture « froid » à éviter → câblage choisi pour qu'une NTC coupée ou en court-circuit fasse retomber le relais) ou dépassement → relais ouvert. Contact d'auto-maintien + bouton de réarmement. Le MCU lit l'état du relais et peut l'ouvrir, **jamais le forcer fermé**.
+- **Test de la chaîne C4 à la pose** : bouton « test sécurité » qui commute une résistance simulant 46 °C → le relais doit retomber (LED), puis réarmement manuel. Fait partie de la check-list de pose.
 - **C5** : bimétal à réarmement manuel + TCO, directement sur l'élément, en série dans le circuit 230 V. Protège contre l'emballement de l'élément (SSR collé + ventilateur bloqué + carte morte).
 
 ### 3.3 Perte d'alimentation
@@ -282,7 +330,7 @@ Objectif : **aucune surface ni aucun flux d'air accessible aux abeilles au-dessu
 | Retour du 230 V **< 15 min** après la coupure, nœud en MONTÉE/PALIER | Reprise **autorisée** si l'état persistant (FRAM) est cohérent, l'auto-test repasse, et la durée totale reste dans `DUREE_CHAUFFE_MAX`. Le temps de palier déjà cumulé est conservé. |
 | Retour **> 15 min**, ou état FRAM incohérent, ou reboot inexpliqué | Pas de reprise : passage en DÉFAUT « traitement interrompu », journal de l'interruption. L'apiculteur décide sur site. |
 | Perte totale (tampon vide) | Au redémarrage : ATTENTE, aucun départ sans action locale. |
-| Coupure de l'alimentation de la cage reine | La reine refroidit vers l'ambiante dans sa cage : non dangereux à court terme **[H]**, mais signalé ; la durée de 24 h est comptée en cumulé. |
+| Coupure de l'alimentation de la couveuse à reines | La couveuse est sur sa propre batterie (tampon) : la coupure du groupe ne l'affecte pas. Batterie vide : les reines refroidissent vers l'ambiante dans leurs cages, non dangereux à court terme **[H]**, mais signalé ; la durée de 24 h est comptée en cumulé. |
 
 ### 3.4 Perte de liaison
 
@@ -306,29 +354,53 @@ Objectif : **aucune surface ni aucun flux d'air accessible aux abeilles au-dessu
 | Raspberry Pi | Écarté pour le nœud | Démarrage long, système de fichiers sur SD sensible aux coupures, pas temps réel. Envisageable seulement comme passerelle. |
 | Automate industriel (type LOGO!, Controllino) | Écarté | Robuste mais ×5 à ×10 en coût par ruche, journalisation et télémétrie moins souples. |
 
-### 4.2 Sondes — **5 points de mesure par ruche** (+1 pour la cage reine)
+### 4.2 Sondes — **peignes connectables** (5 points couvain) + sondes intégrées au toit
 
-| Repère | Emplacement | Capteur proposé | Usage |
+#### Principe : les sondes couvain sont indépendantes du toit
+
+Les sondes couvain sont portées par des **peignes** : une lame fine (fibre de verre ou inox, ~2 mm d'épaisseur, largeur ~15 mm) glissée verticalement dans une ruelle, sondes affleurantes, câble silicone remontant par une encoche du bord supérieur. On pose les peignes, **puis** le toit, **puis** on branche chaque peigne sur une embase du toit. Le toit peut être retiré sans toucher aux sondes et inversement.
+
+| Peigne | Emplacement | Sondes | Usage |
 |---|---|---|---|
-| T1 | Couvain haut : entre les 2 cadres centraux du nid, ~5 cm sous la tête de cadre, introduite par le couvre-cadre | DS18B20 en tube inox Ø 4–6 mm, câble silicone | régulation + comptage palier |
-| T2 | Couvain bas : même ruelle, ~15 cm sous la tête de cadre | DS18B20 idem | régulation + cohérence |
-| T3 | Air soufflé : face supérieure du diffuseur, au droit de l'élément | DS18B20 | limite 43 °C logicielle |
-| T4 | Surface de l'élément chauffant | DS18B20 (ou NTC haute température) | diagnostic élément, réglage C5 |
-| H1 | Sous le couvre-cadre | **SHT45** avec membrane PTFE (version filtrée) | T/HR ambiance haute, données scientifiques, détection condensation |
-| S | Au plus près de T3 | NTC 10 kΩ 1 % dédiée | **coupure matérielle C4 uniquement**, non lue par le MCU |
-| R | Cage reine | DS18B20 | canal reine (Ph.3) |
+| **P1 — centre** | Ruelle centrale du nid à couvain | 3 sondes : **haut** (~5 cm sous la tête de cadre), **centre**, **bas** (~5 cm au-dessus du bas du rayon) | régulation (la plus froide des 5), comptage palier, gradient vertical |
+| **P2 — bord gauche** | Dernière ruelle contenant du couvain, côté gauche | 1 sonde, mi-hauteur | homogénéité latérale |
+| **P3 — bord droit** | Idem côté droit | 1 sonde, mi-hauteur | homogénéité latérale |
 
-Justification :
-- **DS18B20** : bus 1-Wire unique pour 4–5 sondes (ID unique = traçabilité scientifique), étanche, bon marché. Précision brute ±0,5 °C, insuffisante entre 40,5 °C et 43 °C → **étalonnage d'un point à 40 °C au bain thermostaté** contre un thermomètre de référence, offsets stockés par ID. Acheter chez un distributeur reconnu (nombreuses contrefaçons). Alternative si dérive : **TMP117** (I²C, ±0,1 °C sans étalonnage, plus cher, câblage I²C plus délicat).
-- **SHT45** plutôt que SHT31/DHT22 : ±0,1 °C / ±1 % HR, chauffage intégré pour décondensation ; l'hygrométrie est critique à 41 °C (évaporation de la colonie, condensation sous le couvre-cadre).
-- Bulle de 8–9 mm entre rayons : un tube de 6 mm est à la limite, 4 mm préférable **[H]** ; les abeilles propolisent les sondes → prévoir le retrait/nettoyage dans la procédure.
+→ **5 points couvain** en prototype. Après les essais, on identifiera les 3 points les plus représentatifs (probablement : centre + un bord + bas) pour la série.
 
-### 4.3 Élément chauffant — **tapis silicone 230 V classe II, 250 W, dans un plancher chauffant ventilé**
+#### Sondes intégrées au toit (non connectables)
+
+| Repère | Emplacement | Capteur | Usage |
+|---|---|---|---|
+| T_air | Grille de soufflage | DS18B20 | limite air soufflé (C1/C2) |
+| T_elem | Surface de l'élément | NTC haute température | diagnostic élément, réglage C5 |
+| S | Grille de soufflage, à côté de T_air | NTC 10 kΩ 1 % dédiée | **coupure matérielle C4 uniquement**, non lue par le MCU |
+| H1 | Face inférieure du toit, hors flux direct | **SHT45** avec membrane PTFE | T/HR, données scientifiques, détection condensation |
+| R | Couveuse à reines (boîtier séparé) | DS18B20 | régulation 38 °C (Ph.3) |
+
+#### Connectique des peignes
 
 | Option | Verdict | Raison |
 |---|---|---|
-| **Tapis silicone dans plancher + ventilateur + diffuseur** | **Retenu** | Faible densité surfacique (250 W sur ~1 600 cm² ≈ 0,15 W/cm²), répartition homogène par brassage, élément hors de portée des abeilles, rattrape le fond grillagé Nicot (qui doit être obturé pendant le traitement), fabrication simple et reproductible. |
-| Résistance CTP à air pulsé | Variante possible | Autolimitante (sécurité intrinsèque), mais températures de sortie d'air locales élevées (50–70 °C typiques) → exige un mélangeage soigné ; à tester si le tapis pose problème. |
+| **1-Wire (DS18B20) sur connecteur M8 4 broches IP67, un bus par embase** | **Retenu** | 3 fils suffisent (GND, données, 3,3 V) ; connecteurs M8 industriels détrompés, étanches, bon marché ; **un bus par embase** → la position d'une sonde est donnée par l'embase où elle est branchée, pas par une table d'ID à tenir à jour ; détection immédiate d'un peigne débranché. |
+| I²C (TMP117) sur M8/M12 | Variante | Meilleure précision sans étalonnage (±0,1 °C), mais I²C supporte mal les câbles longs et les connecteurs en environnement humide ; à retenir seulement si l'étalonnage des DS18B20 dérive. |
+| Connecteur unique multi-broches (toutes sondes sur un seul câble) | Écarté | Un seul faisceau à brancher, mais le peigne central et les bords ne sont pas au même endroit selon la colonie ; câbles séparés plus souples. |
+
+Embases du toit : 3 (P1, P2, P3) **[H]**, repérées par couleur, détrompées pour qu'un peigne bord ne puisse pas être branché sur l'embase centre si la longueur de câble diffère. Capuchons d'obturation quand rien n'est branché.
+
+Justification des capteurs :
+- **DS18B20** : bus 1-Wire (ID unique = traçabilité scientifique), étanche, bon marché. Précision brute ±0,5 °C, insuffisante entre 42 °C et 45 °C → **étalonnage d'un point à 42 °C au bain thermostaté** contre un thermomètre de référence, offsets stockés par ID. Acheter chez un distributeur reconnu (nombreuses contrefaçons). Alternative si dérive : **TMP117** (I²C, ±0,1 °C sans étalonnage, plus cher, câblage I²C plus délicat).
+- **SHT45** plutôt que SHT31/DHT22 : ±0,1 °C / ±1 % HR, chauffage intégré pour décondensation ; l'hygrométrie est critique à 42 °C (évaporation de la colonie, condensation sous le toit).
+- Ruelle de 8–9 mm entre rayons : une lame de 2 mm laisse passer les abeilles ; une sonde affleurante est préférable à un tube saillant **[H]** ; les abeilles propolisent les peignes → prévoir le retrait/nettoyage dans la procédure.
+
+### 4.3 Élément chauffant — **élément 230 V classe II, 250 W, en gaine ventilée dans le module de toit**
+
+| Option | Verdict | Raison |
+|---|---|---|
+| **Élément (tapis silicone enroulé sur ailettes, ou résistance blindée à ailettes) dans une gaine du toit + soufflante radiale 12 V** | **Retenu** | Seul emplacement disponible (plancher ≤ 2 cm) ; élément enfermé derrière une grille, hors de portée des abeilles ; l'air est chauffé puis mélangé avant d'être soufflé ; tout le « chaud » est dans une pièce amovible. |
+| Résistance CTP à air pulsé | Variante sérieuse | Autolimitante (sécurité intrinsèque), compacte, adaptée à une gaine de toit ; mais air de sortie local à 50–70 °C → doit être mélangé avec l'air de retour avant la grille. À tester en parallèle au banc. |
+| Plancher chauffant | Écarté (D1) | Plancher Nicot trop fin (~2 cm). |
+| Toit chauffant sans ventilation | Écarté | L'air chaud reste en haut : seul le haut des cadres chaufferait, le couvain resterait froid. |
 | Fils chauffants dans les cires / cadres chauffants | Écarté | Excellente homogénéité mais impose des cadres spéciaux sur 100 ruches, coût et contraintes d'exploitation. |
 | Lampe / panneau infrarouge | Écarté | Rayonnement direct sur les abeilles, points chauds non maîtrisables. |
 | Air chaud extérieur gainé (générateur central) | Écarté | Pertes, mauvaise répartition entre 20 ruches, régulation individuelle impossible. |
@@ -336,14 +408,26 @@ Justification :
 Dimensionnement **[H]** (à confirmer en Ph.1) :
 - puissance nominale **250 W** par ruche, utilisée à 100 % seulement en montée ; régime de palier attendu 60–150 W selon l'ambiante ;
 - 230 V AC retenu pour la compatibilité directe groupe/onduleur et des sections de câble raisonnables (≈ 1,1 A par ruche) ; **alternative TBTS 48 V DC** écartée en première intention (≈ 5,2 A par ruche, sections et pertes en ligne sur 20 ruches, mais plus sûre au contact) — à reconsidérer si la batterie devient la source principale (évite l'onduleur).
-- **Ventilateur** 12 V, 80–92 mm, roulement à billes, tenue ≥ 70 °C, PWM + tachymètre, débit réduit (« ventilation douce ») en recirculation interne.
+- **Soufflante** radiale 12 V dans le toit (type 75 × 75 × 30 mm), roulement à billes, tenue ≥ 70 °C, PWM + tachymètre ; débit 5–15 m³/h **[H]** en recirculation. Optionnel : 1–2 soufflantes 40 × 40 × 10 mm dans le plancher 3D pour aider le retour.
+
+### 4.3 bis Couveuse à reines
+
+| Option | Verdict | Raison |
+|---|---|---|
+| **Boîtier isolé + module Peltier réversible (pont en H) + dissipateur, alimenté en 12/24 V sur batterie** | **Retenu** | Hors ruche, l'ambiance peut être au-dessus de 38 °C (été, soleil) comme bien en dessous : il faut pouvoir **chauffer et refroidir**. Un Peltier ~40 W nominal utilisé à charge réduite suffit pour un petit volume isolé **[H]**. |
+| Résistance seule | Repli | Plus simple et plus sobre, valable si la couveuse est toujours à l'ombre et l'ambiance < 34 °C ; inutilisable en plein été. |
+| Alimentation par câble depuis le module de toit | Écarté | Le toit n'est alimenté que ~4–5 h ; les reines doivent tenir 24 h. |
+
+- Format : logements calibrés pour **cages de reine Nicot standard** (reine + accompagnatrices + candi), ventilation interne douce pour homogénéiser.
+- Prototype (Ph.3) : 1 logement. Lot de 20 (Ph.5) : **une couveuse commune de 20 logements** près du coffret, sur le tampon LiFePO4, plutôt que 20 boîtiers.
+- Consommation estimée **[H]** : 3–8 W moyen par logement selon l'ambiance → 24 h ≈ 0,1–0,2 kWh par reine.
 
 ### 4.4 Actionneurs — **SSR zéro-crossing** + relais de sécurité électromécanique
 
 - **SSR 230 V AC à passage par zéro**, calibre 10 A (≥ 8× le courant nominal, sans dissipateur volumineux), commande 3–32 V DC : silencieux, sans usure, compatible avec une commande en rapport cyclique sur période de 10 s, pas de perturbation pour le groupe électrogène.
 - Mode de défaillance typique d'un SSR = **court-circuit** → d'où le **relais électromécanique en série** (C4) et le bimétal/TCO (C5).
 - Écartés : relais électromécanique seul en commande (usure à 1 commutation toutes les 10 s → ~1 000 cycles/jour par ruche) ; gradateur à angle de phase (harmoniques, mauvaise cohabitation avec un groupe).
-- Cage reine : MOSFET logique côté 12 V (TBTS), suffisant pour ~10 W.
+- Couveuse à reines : pont en H basse tension (TBTS) pour le Peltier.
 
 ### 4.5 Communication
 
@@ -376,13 +460,15 @@ Volume indicatif : 20 ruches × ~10 grandeurs × 1 point/10 s × 10 h ≈ 720 00
 | H2 | Coefficient de déperdition global paroi plastique non isolée (convection int./ext., vent faible) | U ≈ 5 W/m²·K ; avec isolation 30 mm (Ph.6) U ≈ 1–1,5 W/m²·K |
 | H3 | Température ambiante de dimensionnement | 15 °C (cas défavorable) ; 25 °C (cas courant été) |
 | H4 | Masse thermique ruche peuplée (miel ~12 kg, bois/cire ~4 kg, couvain+abeilles ~5 kg, plastique ~3 kg, plancher ~3 kg) | C ≈ 60 kJ/K |
-| H5 | Échauffement moyen à fournir (cœur 35 → 40,5 °C, périphérie bien moins chaude) | ΔT moyen ≈ 10 K → ≈ 600 kJ ≈ 0,17 kWh |
-| H6 | Renouvellement d'air par le trou de vol | ~2 m³/h → ~15–20 W |
+| H5 | Échauffement moyen à fournir (cœur 35 → 42,3 °C, périphérie bien moins chaude) | ΔT moyen ≈ 11 K → ≈ 660 kJ ≈ 0,18 kWh |
+| H6 | Renouvellement d'air par les aérations de la porte Nicot (trou de vol fermé) | ~1 m³/h → ~10 W |
 | H7 | Chaleur métabolique de la colonie (apport) vs ventilation/évaporation par les abeilles (perte) | **Non quantifié** : les abeilles vont lutter contre l'échauffement (ventilation, évaporation d'eau). Poste potentiellement important — à mesurer. |
-| H8 | Cage reine (enceinte isolée ~1 L) | ~10 W crête, ~3–5 W moyen |
+| H8 | Couveuse à reines (Peltier, par logement) | ~3–8 W moyen selon l'ambiance |
 | H9 | Électronique par ruche (ESP32 + capteurs + pertes alim) / ventilateur | ~1,5 W / ~3 W |
 
 ### 5.2 Par ruche
+
+> Révision 2 : consigne relevée à 42,3 °C (+~2 °C), palier raccourci à 2 h, trou de vol fermé. Les deux effets se compensent à peu près ; l'élément de 250 W reste adapté. Les pertes du module de toit (gaine, soufflante) sont incluses dans la marge **[H]**.
 
 | Poste | 25 °C ambiant | 15 °C ambiant |
 |---|---|---|
@@ -391,7 +477,7 @@ Volume indicatif : 20 ruches × ~10 grandeurs × 1 point/10 s × 10 h ≈ 720 00
 | **Puissance de maintien en palier** | **≈ 95 W** | **≈ 150 W** |
 | Montée en 90 min : 0,17 kWh / 1,5 h + déperditions moyennes | ≈ 110 + 70 = 180 W | ≈ 110 + 110 = 220 W |
 | **Élément retenu** | **250 W** (marge ~15–40 %) | |
-| Énergie par cycle (montée 1,5 h + palier 2,5 h) | ≈ 0,5 kWh | ≈ 0,7 kWh |
+| Énergie par cycle (montée 1,5 h + palier 2 h) | ≈ 0,45 kWh | ≈ 0,65 kWh |
 | Avec isolation Ph.6 (palier ≈ 40–60 W) | ≈ 0,3 kWh | ≈ 0,4 kWh |
 
 ### 5.3 Par sous-lot de 5 ruches
@@ -455,9 +541,11 @@ thermo-varroa/
 │   ├── bom-phase1.md
 │   ├── cablage-phase1.md
 │   ├── noeud-ruche/                 # schéma + PCB (KiCad), nomenclature
-│   ├── chaine-securite/             # comparateur 43 °C, relais, bimétal, TCO
-│   ├── plancher-chauffant/          # plans mécaniques (STEP/FreeCAD), diffuseur
-│   ├── cage-reine/                  # Ph.3
+│   ├── chaine-securite/             # comparateur 45 °C, relais, bimétal, TCO
+│   ├── module-toit/                 # coque, gaine de chauffe, soufflante, grille (STEP/FreeCAD)
+│   ├── plancher-ferme/              # plancher plénum imprimé 3D (STL + sources)
+│   ├── peignes-sondes/              # lames, implantation des sondes, connectique M8
+│   ├── couveuse-reines/             # Ph.3 : boîtier, logements cages Nicot, Peltier
 │   ├── controleur-lot/              # Ph.5
 │   ├── coffret-puissance/           # Ph.5 : unifilaire, protections
 │   └── capot-isole/                 # Ph.6
@@ -506,12 +594,11 @@ Note : les **tests unitaires** firmware vivent dans `firmware/test/` (convention
 
 ## 7. Points ouverts à valider par l'apiculteur avant la Phase 1
 
-1. **Modèle Nicot exact** (Dadant 10 ou 12 cadres, dimensions, présence de hausses pendant le traitement) et possibilité d'insérer un **plancher chauffant de ~6–8 cm** à la place du fond grillagé ou sous le corps.
-2. **Trou de vol pendant le traitement** : laissé ouvert (réduit) ou fermé ? Faut-il traiter le soir, butineuses rentrées ? Impact direct sur la puissance et sur le risque d'asphyxie / de « barbe » à l'entrée.
-3. **Cage reine** : à 38 °C elle ne peut **pas** être dans le volume chauffé à 41 °C → où la placer (hors ruche, dans le capot isolé) ? Ordre des opérations (encagement avant/pendant/après le palier couvain) et temps opérateur pour trouver 20 reines par lot. Confirmer la source du protocole 38 °C / 24 h.
-4. **Valeurs de traitement** : confirmer palier 40,5 °C ± 0,5, durée 150 min par défaut (bornes 120–180), seuil absolu 43 °C au contact et seuil logiciel 42,5 °C sur l'air soufflé ; préciser les sources (littérature, retours d'expérience).
-5. **Période de traitement visée** et plage de températures ambiantes attendues (dimensionne la puissance : 250 W suffit-il au printemps ?).
-6. **Énergie** : groupe disponible (modèle, autonomie du réservoir) ; est-il acceptable de le laisser tourner **sans surveillance ~10 h** sur les ruchers ? Sinon, budget pour une batterie.
-7. **Couverture réseau** des ruchers (liste des sites, test d'une SIM LTE-M sur place) et disposition d'un lot (espacement des ruches, longueur totale de câble).
-8. **Nombre de sondes en série** : valider le minimum de 3 sondes + NTC de sécurité par ruche (au lieu de « 1 sonde » prévu au Prompt 5).
-9. **Prototype Phase 1** : lieu des essais à vide (miellerie avec secteur ?), ruche Nicot dédiée au banc, puis colonie test sacrifiable pour les premiers essais avec abeilles (après validation Phase 2).
+Points tranchés en révision 2 : voir « Décisions validées » en tête de document. Restent :
+
+1. **Cotes de la ruche Nicot** : dimensions intérieures du corps, du toit d'origine et du plancher, espace entre cadres de rive et parois (décide entre l'option A et B de la boucle d'air), présence de hausses pendant le traitement. Le plus simple : mesurer une ruche, ou fournir la référence exacte.
+2. **Saison et ambiance visées** : avec ou sans couvain, plage de températures extérieures (dimensionne la puissance et le besoin de refroidir la couveuse à reines).
+3. **Organisation des reines** : temps disponible pour trouver et encager 20 reines par lot ; le bon moment pour les réintroduire (fin des 24 h).
+4. **Groupe électrogène** : peut-il tourner seul ~10 h sur les ruchers (autonomie réservoir, risque de vol) ?
+5. **Couverture 4G** des ruchers et disposition d'un lot (espacement des ruches, longueur de câble).
+6. **Banc d'essai Phase 1** : lieu (miellerie avec secteur ?), ruche Nicot dédiée, accès à une imprimante 3D pour le plancher et les pièces du toit, puis colonie test pour les premiers essais avec abeilles (après validation Phase 2).
