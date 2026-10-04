@@ -146,6 +146,56 @@ L'air ne peut circuler facilement que **dans le sens des ruelles** (entre deux r
 - **À vérifier sur les cotes Nicot** : l'orientation des cadres par rapport à l'entrée. Si les cadres sont parallèles à la façade, la boucle se fait de gauche à droite au lieu d'avant ↔ arrière ; le principe est le même.
 - Les ventilateurs optionnels du plancher, s'ils sont utiles, restent **à l'intérieur** du plancher fermé.
 
+#### Cotes de référence (Nicotplast Dadant 10)
+
+| Élément | Cote | Statut |
+|---|---|---|
+| Couvre-cadre isolant | 500 × 420 mm | fiche produit Nicotplast |
+| Hauteur du toit | 100 mm | fiche produit Nicotplast |
+| Porte d'entrée | passage 8,5 mm | fiche produit Nicotplast |
+| Plancher | PVC aéré | fiche produit Nicotplast |
+| Intérieur du corps | ≈ 450 × 375 mm, hauteur ≈ 310 mm | **[H]** standard Dadant 10, à mesurer |
+| Cadre Dadant corps | ≈ 435 × 300 mm | **[H]** standard Dadant, à mesurer |
+| Espace sous cadres / hauteur utile du plancher | à mesurer | **[H]** |
+| Orientation des cadres / entrée | à vérifier | **[H]** : en regardant l'entrée, voit-on le bout des cadres ou le flanc du premier cadre ? |
+
+Le toit fait 100 mm de haut : place suffisante pour une gaine de chauffe (~40–50 mm), un compartiment électronique et l'isolant **[H]**.
+
+#### Plancher : fermer un plancher Nicot existant
+
+Plutôt que de fabriquer un plancher, on **ferme un plancher Nicot aéré existant** **[H]** :
+- obturer la grille par le dessous : plaque pleine glissée dans la glissière du lange de comptage varroa si elle existe, sinon plaque PVC fixée par le dessous avec joint ;
+- l'espace entre la grille et la plaque devient le **plénum de retour** ; les abeilles restent au-dessus de la grille et n'ont pas accès aux ventilateurs.
+
+#### Ventilateurs de plancher : recommandés
+
+C'est vraisemblablement **le facteur déterminant** pour l'uniformité : la soufflante du toit pousse l'air vers le bas, mais le passage le plus étroit de la boucle est sous les cadres. Deux micro-soufflantes dans le plancher réduisent cette résistance et tirent l'air d'un bout à l'autre.
+
+- Type : soufflantes **radiales 12 V, 40 × 40 × 10 mm** (ou axiaux 30 × 30 × 7 mm si la hauteur libre est plus faible), roulement à billes, tenue ≥ 70 °C, avec tachymètre.
+- Placement : sous la grille, dans le plénum, orientées dans le sens de la boucle (de l'extrémité « descente » vers l'extrémité « remontée »).
+- Alimentation et tachymètre par un câble vers le toit (même logique de connecteur que les peignes) ; un ventilateur de plancher arrêté = DÉFAUT, comme la soufflante du toit.
+- Exposition : chaleur, humidité, propolis → modèles protégés, accessibles pour nettoyage.
+
+#### La forme qui fait circuler l'air : cloisonner le toit
+
+Sans cloisonnement, l'air soufflé par le toit repartirait directement vers l'aspiration en glissant au-dessus des têtes de cadres, sans traverser le couvain (**court-circuit**). Le dessous du toit est donc divisé en trois zones, posées sur les têtes de cadres :
+
+```
+     Vue de dessus du toit (côté cadres)
+   ┌──────────┬────────────────────────────┬──────────┐
+   │ ASPIRA-  │   PLAQUE PLEINE ÉTANCHE    │ SOUF-    │
+   │ TION     │   posée sur les têtes      │ FLAGE    │
+   │ (bande   │   de cadres, joint mousse  │ (bande   │
+   │ ~1/4)    │   (~moitié centrale)       │ ~1/4)    │
+   └──────────┴────────────────────────────┴──────────┘
+      ▲ remontée                               ▼ descente
+```
+
+- Bandes de soufflage et d'aspiration sur toute la largeur, perpendiculaires aux ruelles : chaque ruelle a son entrée et sa sortie.
+- La plaque centrale force l'air à descendre jusqu'au plancher avant de remonter : il traverse obligatoirement les rayons.
+- Dans le plancher, une cloison basse optionnelle évite que l'air ne remonte trop tôt.
+- Les proportions (1/4 – 1/2 – 1/4) sont un point de départ **[H]** à ajuster au banc d'après l'écart entre les 5 sondes.
+
 #### Pour mémoire : options comparées avant décision
 
 | | **Option A — Soufflage périphérique, retour central (recommandée en premier essai)** | **Option B — Soufflage central, retour par conduit latéral** |
