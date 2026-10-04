@@ -143,7 +143,7 @@ L'air ne peut circuler facilement que **dans le sens des ruelles** (entre deux r
 
 - La fente de soufflage et la fente d'aspiration font **toute la largeur** du toit : chaque ruelle reçoit sa part d'air, ce qui donne l'uniformité recherchée.
 - Le sens (avant → arrière ou l'inverse) se choisira au banc ; on peut aussi **inverser périodiquement** le sens de la soufflante pour lisser les gradients **[H]** (à tester).
-- **À vérifier sur les cotes Nicot** : l'orientation des cadres par rapport à l'entrée. Si les cadres sont parallèles à la façade, la boucle se fait de gauche à droite au lieu d'avant ↔ arrière ; le principe est le même.
+- Cadres **perpendiculaires à l'entrée** (confirmé) : les ruelles vont de l'avant vers l'arrière, la boucle avant ↔ arrière est donc la bonne.
 - Les ventilateurs optionnels du plancher, s'ils sont utiles, restent **à l'intérieur** du plancher fermé.
 
 #### Cotes de référence (Nicotplast Dadant 10)
@@ -156,8 +156,8 @@ L'air ne peut circuler facilement que **dans le sens des ruelles** (entre deux r
 | Plancher | PVC aéré | fiche produit Nicotplast |
 | Intérieur du corps | ≈ 450 × 375 mm, hauteur ≈ 310 mm | **[H]** standard Dadant 10, à mesurer |
 | Cadre Dadant corps | ≈ 435 × 300 mm | **[H]** standard Dadant, à mesurer |
-| Espace sous cadres / hauteur utile du plancher | à mesurer | **[H]** |
-| Orientation des cadres / entrée | à vérifier | **[H]** : en regardant l'entrée, voit-on le bout des cadres ou le flanc du premier cadre ? |
+| Hauteur libre dans le plancher (grille → dessous) | **16 mm** | mesuré par l'apiculteur |
+| Orientation des cadres / entrée | **perpendiculaires à l'entrée** (ruelles avant → arrière) | confirmé par l'apiculteur → boucle avant ↔ arrière |
 
 Le toit fait 100 mm de haut : place suffisante pour une gaine de chauffe (~40–50 mm), un compartiment électronique et l'isolant **[H]**.
 
@@ -171,7 +171,7 @@ Plutôt que de fabriquer un plancher, on **ferme un plancher Nicot aéré exista
 
 C'est vraisemblablement **le facteur déterminant** pour l'uniformité : la soufflante du toit pousse l'air vers le bas, mais le passage le plus étroit de la boucle est sous les cadres. Deux micro-soufflantes dans le plancher réduisent cette résistance et tirent l'air d'un bout à l'autre.
 
-- Type : soufflantes **radiales 12 V, 40 × 40 × 10 mm** (ou axiaux 30 × 30 × 7 mm si la hauteur libre est plus faible), roulement à billes, tenue ≥ 70 °C, avec tachymètre.
+- Type : soufflantes **radiales 12 V, 40 × 40 × 10 mm** (10 mm de haut pour 16 mm disponibles ; axiaux 30 × 30 × 7 mm en repli), roulement à billes, tenue ≥ 70 °C, avec tachymètre.
 - Placement : sous la grille, dans le plénum, orientées dans le sens de la boucle (de l'extrémité « descente » vers l'extrémité « remontée »).
 - Alimentation et tachymètre par un câble vers le toit (même logique de connecteur que les peignes) ; un ventilateur de plancher arrêté = DÉFAUT, comme la soufflante du toit.
 - Exposition : chaleur, humidité, propolis → modèles protégés, accessibles pour nettoyage.
