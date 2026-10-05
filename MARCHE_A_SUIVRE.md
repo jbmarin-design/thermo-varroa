@@ -1,5 +1,9 @@
 # Marche à suivre & prompts IA
 
+> ⚠️ **Mise à jour** : les contraintes écrites dans les prompts ci-dessous datent du cadrage initial. Plusieurs ont changé depuis (chauffe par **module de toit** et non par plancher, consigne **42 °C / 2 h** au point le plus froid au lieu de 40–41 °C / 2–3 h, **couveuse à reines séparée**, **peignes de sondes connectables**, coupure matérielle **45 °C**, débit d'air ~80–120 m³/h). **`docs/architecture.md` fait foi** : joignez-le à chaque prompt.
+>
+> Phases 0 et 1 : réalisées (voir l'état d'avancement dans le `README.md`).
+
 ## Méthode de travail
 
 1. Une branche Git par phase : `git checkout -b phase-N-nom`
