@@ -22,6 +22,11 @@
 | D11 | Saisons | Traitement en **septembre** et au **printemps**, ambiance 20–25 °C (parfois plus). **Pas de traitement en hiver** (§2.4). |
 | D12 | Reines | ~5 min par ruche pour trouver et encager → ~1 h 40 par lot de 20, à faire avant le départ. |
 | D13 | Données | **Stockage local sur une passerelle de lot** (mini-PC), qui décharge vers le serveur dès qu'une connexion est disponible (§4.5). |
+| D14 | Soufflage par le bas avec conduits extérieurs | **Écarté** : impose des pièces extérieures et ressemble au système Hyperthermium (brevets déclarés). La boucle reste interne, chauffe dans le toit. |
+| D15 | Cadres de rive | **Laissés en place** pendant le traitement : objectif de pose avec un minimum de manipulations et chauffe uniforme de toute la ruche. Le surcroît de masse thermique (réserves) est intégré au dimensionnement. |
+| D16 | CO₂ | **Mesure de référence uniquement**, sur le prototype lors des **premiers essais avec abeilles** (le CO₂ n'a pas de sens à vide). Pas de trappe pilotée : aération constante par la porte Nicot. Pas d'alerte bloquante tant que des seuils n'ont pas été établis par la mesure. Le capteur n'est pas prévu en série à ce stade (coût). |
+| D17 | Réintroduction de la reine | Conduite apicole classique (cage d'introduction selon les pratiques habituelles) : hors du périmètre du système. |
+| D18 | Identification des ruches | Pas de QR code propre au projet pour l'instant. Piste pour la Phase 4 : **se greffer sur l'identification par code-barres déjà utilisée par l'apiculteur ou par des logiciels de gestion de rucher** (scan de la ruche → association du traitement). |
 
 ### Base scientifique des consignes
 

@@ -142,6 +142,7 @@ Le poste 8 (bain thermostaté, thermomètre de référence, masse thermique) est
 | Contrôleur d'isolement | **500 V DC** (mégohmmètre) — à défaut, faire réaliser la mesure par un électricien | 1 | (atelier / prêt) |
 | Thermomètre infrarouge | −20/+380 °C, émissivité réglable (contrôle de l'élément et des surfaces) | 1 | 25 € |
 | Anémomètre à fil chaud | 0–20 m/s (estimation des débits aux fentes) **[optionnel]** | 1 | 60 € |
+| **Capteur CO₂ de référence** (D16) | NDIR, plage **≥ 0–5 % vol (50 000 ppm)**, sortie I²C/UART, compensation en température, tenue ≥ 50 °C. **Attention : les capteurs courants type SCD41 plafonnent à ~0,5 % et saturent dans une ruche.** Utilisé seulement pour les **premiers essais avec abeilles** (inutile à vide) | 1 | 80–150 € [H] |
 
 ---
 
