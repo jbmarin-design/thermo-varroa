@@ -12,6 +12,11 @@
 // AUTOTEST est un état transitoire ajouté à la machine de l'architecture (§2.2)
 // pour faire tourner les ventilateurs et contrôler leurs tachymètres avant de chauffer.
 //
+// Variante plancher chauffant (D21, paramètre `plancher_chauffant`) : en MONTÉE, PALIER et
+// REFROIDISSEMENT, le film suit la demande du toit (CommandeFilm), coupé au-delà de 50 °C de
+// surface, interdit si les soufflantes de plancher ne tournent pas. Variante désactivée :
+// comportement strictement inchangé (aucune exigence sur la sonde du film).
+//
 // Implémenté dès la Phase 1 : timeout de montée, palier cumulatif (Tmin >= 42,0 ET
 // Tmax <= 43,5 °C), palier perdu (> 30 min cumulées hors plage), chauffe inefficace,
 // homogénéité insuffisante, SSR collé (dans `securite`), durée max de chauffe.
@@ -47,6 +52,8 @@ struct Commandes {
 /// Sorties de la machine vers le matériel.
 struct Sorties {
     bool chauffe = false;                    // commande SSR effective (régulation ET sécurité ET état)
+    bool film = false;                       // commande du film du plancher (variante D21), même logique
+                                             // + limite 50 °C + soufflantes de plancher en marche
     uint8_t pwm_pct[NB_VENTILOS] = {0, 0, 0};
     bool ouvrir_relais_serie = false;        // le MCU ouvre la chaîne C4 (jamais il ne la ferme)
 };
@@ -67,6 +74,8 @@ enum CodeAutotest : uint32_t {
     AT_PARAMETRES         = 1u << 10,
     AT_DEFAUT_PRESENT     = 1u << 11,
     AT_RTC                = 1u << 12,  // horloge non valide (horodatage scientifique impossible)
+    AT_SONDE_FILM         = 1u << 13,  // plancher chauffant actif : sonde du film absente/invalide/non étalonnée
+    AT_FILM_SANS_SOUFFLANTES = 1u << 14, // plancher chauffant actif avec pwm_plancher = 0 (interdit)
 };
 
 /// Avertissements (non bloquants, journalisés).
@@ -90,6 +99,7 @@ struct ResumeCycle {
     uint32_t duree_cycle_s = 0;
     float tmax_couvain[NB_SONDES_COUVAIN] = {0, 0, 0, 0, 0};
     float tmax_air = 0;
+    float tmax_film = 0;          // T surface max du film (0 : variante inactive ou sonde absente)
     float ecart_max_palier = 0;   // max(Tmax - Tmin) observé en PALIER
     float t_couvain_init = 0;     // moyenne (Tmin+Tmax)/2 au départ du cycle
     float hr_init = -1;           // HR sous le toit au départ (-1 : SHT45 indisponible)
@@ -116,6 +126,7 @@ public:
     uint32_t hors_plage_cumule_s() const { return hors_plage_ms_ / 1000u; }
     uint32_t dernier_autotest() const { return autotest_code_; }
     const RegulationTOR& regulation() const { return reg_; }
+    const CommandeFilm& film() const { return film_; }
     /// Vrai si l'état vient de changer au dernier pas (pour journaliser l'événement).
     bool transition() const { return transition_; }
     Etat etat_precedent() const { return etat_prec_; }
@@ -138,6 +149,8 @@ private:
     void aller(Etat e, uint32_t maintenant_ms);
     void ventilos(Sorties& s, uint8_t pct_toit, uint8_t pct_plancher) const;
     bool regler(const Mesures& m, float consigne);
+    bool commander_film(const Mesures& m, bool demande);
+    bool soufflantes_plancher_ok(const Mesures& m) const;
     void suivre_resume(const Mesures& m);
     void finaliser_resume(uint32_t maintenant_ms, uint32_t defauts);
 
@@ -172,6 +185,7 @@ private:
     bool resume_pret_ = false;
     ResumeCycle resume_;
     RegulationTOR reg_;
+    CommandeFilm film_;
 };
 
 }  // namespace tv

@@ -423,6 +423,121 @@ void test_tachy_rpm() {
     TEST_ASSERT_EQUAL_UINT16(0, tachy_rpm(100, 0, 2));
 }
 
+// --- Variante plancher chauffant (D21) ------------------------------------------------------------
+
+EntreeFilm entree_film(bool demande, float t_film) {
+    EntreeFilm e;
+    e.actif = true;
+    e.demande = demande;
+    e.sonde_valide = true;
+    e.t_film = t_film;
+    e.soufflantes_ok = true;
+    return e;
+}
+
+void test_film_suit_la_demande() {
+    CommandeFilm f;
+    TEST_ASSERT_TRUE(f.calculer(entree_film(true, 30.0f)));
+    TEST_ASSERT_EQUAL_UINT8(FILM_AUCUNE, f.raisons());
+    TEST_ASSERT_FALSE(f.calculer(entree_film(false, 30.0f)));
+    TEST_ASSERT_EQUAL_UINT8(FILM_DEMANDE, f.raisons());
+    TEST_ASSERT_TRUE(f.calculer(entree_film(true, 30.0f)));
+}
+
+void test_film_limite_50_avec_hysteresis() {
+    CommandeFilm f;
+    TEST_ASSERT_TRUE(f.calculer(entree_film(true, 50.0f)));    // 50,0 : pas au-delà
+    TEST_ASSERT_FALSE(f.calculer(entree_film(true, 50.1f)));   // > 50 : coupé
+    TEST_ASSERT_TRUE(f.raisons() & FILM_LIMITE);
+    TEST_ASSERT_FALSE(f.calculer(entree_film(true, 48.5f)));   // dans l'hystérésis : reste coupé
+    TEST_ASSERT_TRUE(f.calculer(entree_film(true, 48.0f)));    // <= 48 : reprise
+}
+
+void test_film_interdit_sans_soufflantes_ni_sonde() {
+    CommandeFilm f;
+    EntreeFilm e = entree_film(true, 30.0f);
+    e.soufflantes_ok = false;
+    TEST_ASSERT_FALSE(f.calculer(e));
+    TEST_ASSERT_TRUE(f.raisons() & FILM_SOUFFLANTES);
+    e = entree_film(true, 30.0f);
+    e.sonde_valide = false;
+    TEST_ASSERT_FALSE(f.calculer(e));
+    TEST_ASSERT_TRUE(f.raisons() & FILM_DONNEES);
+    e = entree_film(true, 30.0f);
+    e.actif = false;                                           // variante désactivée : jamais
+    TEST_ASSERT_FALSE(f.calculer(e));
+    TEST_ASSERT_EQUAL_UINT8(FILM_INACTIF, f.raisons());
+}
+
+void test_film_55_pendant_10s_defaut_verrouille() {
+    Securite s;
+    uint32_t t = 0;
+    ContexteSecurite c = ctx_cycle(false);
+    c.plancher_chauffant = true;
+    const Mesures m = mesures_film(42.0f, 43.0f, 55.0f);
+    evaluer_pendant(s, m, c, t, 8000);
+    TEST_ASSERT_TRUE(s.autorise_chauffe());
+    evaluer_pendant(s, m, c, t, 2000);
+    TEST_ASSERT_TRUE(s.defauts() & DEF_FILM_SURTEMP);
+    TEST_ASSERT_TRUE(s.ouvrir_relais_serie());                 // K2 coupe aussi le 24 V du film
+    TEST_ASSERT_TRUE(s.brassage_requis());
+    // Acquittement refusé tant que la surface n'est pas revenue sous 50 °C.
+    TEST_ASSERT_FALSE(s.acquitter(mesures_film(42.0f, 43.0f, 50.5f)));
+    TEST_ASSERT_TRUE(s.acquitter(mesures_film(42.0f, 43.0f, 45.0f)));
+}
+
+void test_film_54_9_pas_de_defaut() {
+    Securite s;
+    uint32_t t = 0;
+    ContexteSecurite c = ctx_cycle(false);
+    c.plancher_chauffant = true;
+    evaluer_pendant(s, mesures_film(42.0f, 43.0f, 54.9f), c, t, 10 * MIN);
+    TEST_ASSERT_EQUAL_UINT32(DEF_AUCUN, s.defauts());
+}
+
+void test_sonde_film_invalide_defaut_seulement_si_variante_active() {
+    // Variante désactivée : aucune sonde de film -> aucun défaut (comportement inchangé).
+    Securite s;
+    uint32_t t = 0;
+    const Mesures sans_film = mesures(42.0f, 43.0f);
+    TEST_ASSERT_FALSE(sans_film.t_film.valide);
+    evaluer_pendant(s, sans_film, ctx_cycle(false), t, 2 * MIN);
+    TEST_ASSERT_EQUAL_UINT32(DEF_AUCUN, s.defauts());
+    // Variante active : sonde du film invalide en cycle -> DÉFAUT immédiat.
+    Securite s2;
+    t = 0;
+    ContexteSecurite c = ctx_cycle(false);
+    c.plancher_chauffant = true;
+    s2.evaluer(sans_film, c, t);
+    TEST_ASSERT_TRUE(s2.defauts() & DEF_SONDE_FILM);
+    TEST_ASSERT_FALSE(s2.ouvrir_relais_serie());               // pas une surtempérature
+    TEST_ASSERT_FALSE(s2.acquitter(sans_film));
+    TEST_ASSERT_TRUE(s2.acquitter(mesures_film(42.0f, 43.0f, 40.0f)));
+    // Hors cycle (ATTENTE) : l'absence de sonde n'est vérifiée qu'à l'auto-test.
+    Securite s3;
+    ContexteSecurite hors;
+    hors.plancher_chauffant = true;
+    s3.evaluer(sans_film, hors, 0);
+    TEST_ASSERT_EQUAL_UINT32(DEF_AUCUN, s3.defauts());
+}
+
+void test_parametre_plancher_chauffant_borne_et_crc() {
+    Parametres p = parametres_defaut();
+    TEST_ASSERT_EQUAL_UINT8(0, p.plancher_chauffant);          // désactivé par défaut
+    p.plancher_chauffant = 7;
+    TEST_ASSERT_TRUE(parametres_borner(p));
+    TEST_ASSERT_EQUAL_UINT8(1, p.plancher_chauffant);
+    parametres_sceller(p);
+    TEST_ASSERT_TRUE(parametres_valides(p));
+    p.plancher_chauffant = 0;                                  // modifié sans sceller : CRC KO
+    TEST_ASSERT_FALSE(parametres_valides(p));
+    Position pos;
+    TEST_ASSERT_TRUE(position_depuis_texte("film", pos));
+    TEST_ASSERT_TRUE(pos == Position::FILM);
+    TEST_ASSERT_EQUAL_STRING("film", position_texte(Position::FILM));
+    TEST_ASSERT_FALSE(position_compatible(EMBASE_P1, Position::FILM));
+}
+
 int main(int, char**) {
     UNITY_BEGIN();
     RUN_TEST(test_air_44_5_pendant_10s_defaut);
@@ -461,5 +576,12 @@ int main(int, char**) {
     RUN_TEST(test_sht45_crc_exemple_datasheet);
     RUN_TEST(test_ntc_25_degres);
     RUN_TEST(test_tachy_rpm);
+    RUN_TEST(test_film_suit_la_demande);
+    RUN_TEST(test_film_limite_50_avec_hysteresis);
+    RUN_TEST(test_film_interdit_sans_soufflantes_ni_sonde);
+    RUN_TEST(test_film_55_pendant_10s_defaut_verrouille);
+    RUN_TEST(test_film_54_9_pas_de_defaut);
+    RUN_TEST(test_sonde_film_invalide_defaut_seulement_si_variante_active);
+    RUN_TEST(test_parametre_plancher_chauffant_borne_et_crc);
     return UNITY_END();
 }

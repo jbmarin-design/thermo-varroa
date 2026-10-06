@@ -46,13 +46,15 @@ void IRAM_ATTR isr_tachy_pla() { ++g_impulsions[tv::VENTILO_PLANCHER_A]; }
 void IRAM_ATTR isr_tachy_plb() { ++g_impulsions[tv::VENTILO_PLANCHER_B]; }
 
 // ---------------------------------------------------------------------------------
-// PWM ventilateurs (LEDC, 25 kHz, 8 bits).
+// PWM ventilateurs (LEDC, 25 kHz, 8 bits). Deux canaux : toit (M1) et plancher (M2 + M3 en
+// parallèle sur Q7, D21). Les tachymètres restent séparés.
 // ---------------------------------------------------------------------------------
-const uint8_t PINS_PWM[tv::NB_VENTILOS] = {broche::PWM_TOIT, broche::PWM_PLANCHER_A, broche::PWM_PLANCHER_B};
+constexpr uint8_t NB_CANAUX_PWM = 2;
+const uint8_t PINS_PWM[NB_CANAUX_PWM] = {broche::PWM_TOIT, broche::PWM_PLANCHER_A};
 constexpr uint8_t RESOLUTION_PWM = 8;
 
 void pwm_init() {
-    for (uint8_t v = 0; v < tv::NB_VENTILOS; ++v) {
+    for (uint8_t v = 0; v < NB_CANAUX_PWM; ++v) {
 #if defined(ESP_ARDUINO_VERSION_MAJOR) && ESP_ARDUINO_VERSION_MAJOR >= 3
         ledcAttach(PINS_PWM[v], defauts::FREQ_PWM_VENTILO_HZ, RESOLUTION_PWM);
 #else
@@ -78,7 +80,7 @@ void pwm_ecrire(uint8_t v, uint8_t pct) {
 // ---------------------------------------------------------------------------------
 constexpr uint8_t NB_BUS = 4;
 constexpr uint8_t BUS_TOIT = 3;
-constexpr uint8_t MAX_SONDES_TOIT = 2;
+constexpr uint8_t MAX_SONDES_TOIT = 3;  // air + retour + film (variante D21, via J4)
 OneWire g_bus[NB_BUS] = {OneWire(broche::OW_P1), OneWire(broche::OW_P2), OneWire(broche::OW_P3),
                          OneWire(broche::OW_TOIT)};
 tv::LectureSonde g_toit[MAX_SONDES_TOIT + 1];
@@ -161,6 +163,8 @@ void initialiser() {
     digitalWrite(broche::RELAIS_TRIP, LOW);
     pinMode(broche::ALIM_VENTILOS, OUTPUT);
     digitalWrite(broche::ALIM_VENTILOS, LOW);
+    pinMode(broche::FILM_PLANCHER, OUTPUT);   // film du plancher (D21) coupé
+    digitalWrite(broche::FILM_PLANCHER, LOW);
 
     pinMode(broche::C4_ETAT, INPUT);  // pull-up externe 10 kΩ
     pinMode(broche::BOUTON, INPUT_PULLUP);
@@ -174,7 +178,7 @@ void initialiser() {
 
     // 3) Ventilateurs.
     pwm_init();
-    for (uint8_t v = 0; v < tv::NB_VENTILOS; ++v) pwm_ecrire(v, 0);
+    for (uint8_t v = 0; v < NB_CANAUX_PWM; ++v) pwm_ecrire(v, 0);
     pinMode(broche::TACH_TOIT, INPUT);
     pinMode(broche::TACH_PLANCHER_A, INPUT);
     pinMode(broche::TACH_PLANCHER_B, INPUT);
@@ -194,15 +198,22 @@ void initialiser() {
 // --- Chauffe --------------------------------------------------------------------------
 void commande_chauffe(bool chauffe) { g_enable.commande(chauffe); }
 
+void commande_film(bool film) { digitalWrite(broche::FILM_PLANCHER, film ? HIGH : LOW); }
+
 void ouvrir_c4(bool ouvrir) { digitalWrite(broche::RELAIS_TRIP, ouvrir ? HIGH : LOW); }
 
 bool c4_fermee() { return digitalRead(broche::C4_ETAT) == LOW; }
 
 // --- Ventilation ------------------------------------------------------------------------
 void pwm_ventilos(const uint8_t pct[tv::NB_VENTILOS]) {
+    // M2 et M3 partagent la même ligne PWM (D21) : la machine leur donne toujours la même
+    // consigne ; par prudence on applique la plus forte des deux.
+    const uint8_t plancher = pct[tv::VENTILO_PLANCHER_A] > pct[tv::VENTILO_PLANCHER_B] ? pct[tv::VENTILO_PLANCHER_A]
+                                                                                      : pct[tv::VENTILO_PLANCHER_B];
+    pwm_ecrire(0, pct[tv::VENTILO_TOIT]);
+    pwm_ecrire(1, plancher);
     bool un_actif = false;
     for (uint8_t v = 0; v < tv::NB_VENTILOS; ++v) {
-        pwm_ecrire(v, pct[v]);
         if (pct[v] > 0) un_actif = true;
     }
     digitalWrite(broche::ALIM_VENTILOS, un_actif ? HIGH : LOW);
@@ -261,13 +272,16 @@ void lire_conversion(tv::Mesures& m) {
         const bool ok = l.presente && lire_scratchpad(g_bus[BUS_TOIT], l.rom, t);
         tv::appliquer_lecture(l, ok, t);
     }
-    // Affectation air / retour par position d'étalonnage. Une sonde du toit non étalonnée
-    // n'est JAMAIS prise comme sonde d'air (l'auto-test refusera le départ : AT_SONDE_AIR).
+    // Affectation air / retour / film par position d'étalonnage. Une sonde du toit non étalonnée
+    // n'est JAMAIS prise comme sonde d'air ni de film (l'auto-test refusera le départ :
+    // AT_SONDE_AIR, et AT_SONDE_FILM si la variante plancher chauffant est active).
     m.t_air = tv::LectureSonde();
     m.t_retour = tv::LectureSonde();
+    m.t_film = tv::LectureSonde();
     for (uint8_t s = 0; s < g_nb_toit; ++s) {
         if (g_toit[s].position == tv::Position::AIR) m.t_air = g_toit[s];
         if (g_toit[s].position == tv::Position::RETOUR) m.t_retour = g_toit[s];
+        if (g_toit[s].position == tv::Position::FILM) m.t_film = g_toit[s];
     }
 }
 

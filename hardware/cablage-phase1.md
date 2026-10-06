@@ -16,7 +16,8 @@
 7. **Mesures sous tension** (E4 et suivantes) : multimètre **CAT III 300 V** minimum, une seule main, cordons à pointes protégées, couvercle du boîtier 230 V **refermé** dès que possible ; les mesures de température se font par la console et par thermomètre IR, **pas en ouvrant le boîtier**.
 8. **Ordinateur portable relié en USB pendant que le 230 V est branché** : utiliser un **isolateur USB** (galvanique, ≥ 2,5 kV, type ADuM3160/ADuM4160) — en cas de défaut d'isolement, l'USB relierait l'ordinateur au montage. À défaut, ordinateur **sur batterie**, chargeur débranché.
 9. L'élément atteint **> 100 °C** en air immobile : ne **jamais** l'alimenter sans la soufflante (essais de C5 compris : ils se font sous surveillance, sur support incombustible, extincteur CO₂ à proximité).
-10. Ce montage est un **prototype d'atelier**, non conforme à une norme produit. Il ne quitte pas le banc avant validation de la Phase 2. Faire relire le câblage 230 V par un électricien qualifié avant la première mise sous tension.
+10. **Variante plancher chauffant (D21)** : le film du plancher est en **24 V DC TBTS** issu de PS2 (classe II). **Jamais de 230 V dans le plancher ni dans J4/J5.** PS2 est logée dans le boîtier 230 V ; seuls ses fils 24 V en sortent (câble double isolation, presse-étoupe).
+11. Ce montage est un **prototype d'atelier**, non conforme à une norme produit. Il ne quitte pas le banc avant validation de la Phase 2. Faire relire le câblage 230 V par un électricien qualifié avant la première mise sous tension.
 
 ---
 
@@ -26,23 +27,27 @@
  SECTEUR (banc) ── DDR 30 mA type A ── Disj. 10 A C ── ARRÊT D'URGENCE ── prise IP44
                                                                               │ H07RN-F 3G1,5
  ┌─────────────────────────── BOÎTIER 230 V (dans le toit) ───────────────────┴──────────────┐
- │  L ── F1 2 A T ──┬──────────────────────────────────────────── PS1 L    PS1 230 V → 12 V  │
- │                  │                                                       (classe II)       │
- │                  └── K1/1 (NO) ── SSR1 (1→2) ── F2 bimétal ── F3 TCO ── R1 élément 250 W  │
- │  N ──────────────┬──────────────────────────────────────────── PS1 N           │          │
- │                  └── K1/2 (NO) ───────────────────────────────────────────────┘          │
+ │  L ──┬─ F4 1,6 A T ──────────────────────────────────────────── PS2 L   PS2 230 V → 24 V   │
+ │      │                                                          (classe II, variante D21)  │
+ │      └─ F1 2 A T ──┬─────────────────────────────────────────── PS1 L   PS1 230 V → 12 V   │
+ │                    │                                                    (classe II)        │
+ │                    └── K1/1 (NO) ── SSR1 (1→2) ── F2 bimétal ── F3 TCO ── R1 élément 250 W │
+ │  N ────────────────┬─────────────────────────────────────────── PS1 N, PS2 N    │          │
+ │                    └── K1/2 (NO) ───────────────────────────────────────────────┘          │
  │  PE ── bornier PE ── gaine élément, gaine de chauffe alu, tôles                            │
  │                                                                                            │
- │  PS1 +12 V / 0 V ────────────┐   bobine K1 ◄──────┐   SSR1 entrée 3–32 V DC ◄──┐          │
- └──────────────────────────────┼────────────────────┼─────────────────────────────┼──────────┘
+ │  PS2 +24 V / 0 V ──────┐                                                                   │
+ │  PS1 +12 V / 0 V ──────┼─────┐   bobine K1 ◄──────┐   SSR1 entrée 3–32 V DC ◄───┐          │
+ └────────────────────────┼─────┼────────────────────┼─────────────────────────────┼──────────┘
               câble double isolation, presse-étoupe M12 (TBTS uniquement)
- ┌──────────────────────────────┼─── BOÎTIER TBTS ───┼─────────────────────────────┼──────────┐
+ ┌────────────────────────┼─────┼─── BOÎTIER TBTS ───┼─────────────────────────────┼──────────┐
+ │  24 V ─ F5 5 A ─ K2 contact 2 (NO) ─ J5 +24 V ; J5 retour ─ Q9 N-MOSFET (GPIO 14) ─ 0 V    │
  │  12 V ─ D 1N5819 ─ rail 12 V ├─ U2 12→5 V ─ ESP32 DevKitC (5 V → LDO 3,3 V)    │          │
  │                              ├─ chaîne C4 : NTC RT1 + LM393 + TL431 ─ Q1 ─ K1 + K2         │
  │                              ├─ Q4 (12 V ventilateurs) ─ M1 toit, J4 → M2/M3 plancher       │
  │                              └─ pompe de charge (GPIO 13) ─ Q3 ───────────────────┘        │
- │  ESP32 : 1-Wire ×4, I²C (SHT45, DS3231), µSD, PWM ×3, TACH ×3, LED, boutons S1             │
- │  Façade : S1 départ/acquit · S2 TEST SÉCURITÉ · S3 RÉARMEMENT C4 · LED · J1–J3 M8 · J4 M12  │
+ │  ESP32 : 1-Wire ×4, I²C (SHT45, DS3231), µSD, PWM ×2, TACH ×3, film (GPIO 14), LED, S1     │
+ │  Façade : S1 · S2 TEST · S3 RÉARM. · LED · J1–J3 M8 · J4 M12 (signaux) · J5 M12-T (24 V)   │
  └────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -57,6 +62,17 @@ Chaîne de coupure de l'élément (toutes **en série**, la chauffe n'existe que
 | 5 | **F2 bimétal** sur l'élément | T élément > seuil (70–90 °C, fixé en E6) | oui | manuel (bouton du bimétal) |
 | 6 | **F3 TCO** sur l'élément | T élément > 102 °C | oui | **remplacement** |
 
+Chaîne de coupure du **film du plancher** (variante D21, 24 V DC, toutes **en série**) :
+
+| Ordre | Organe | Ouvert par | Indépendant du MCU ? | Réarmement |
+|---|---|---|---|---|
+| 1 | DDR + disjoncteur + arrêt d'urgence (banc), puis F4 1,6 A T (entrée PS2) | défaut d'isolement, surintensité, opérateur | oui | manuel / remplacement |
+| 2 | F5 5 A rapide (sortie 24 V) | court-circuit du câble ou du film | oui | remplacement |
+| 3 | **K2 contact 2** (NO) | toute ouverture de la chaîne C4 (NTC > 45,0 °C, TEST S2, perte 12 V, **MCU** sur défaut `film_surtemp` ou autre surtempérature) | **oui** (C4) | **manuel** (S3) |
+| 4 | **BM_A / BM_B** bimétal NF 55 °C [H] (un par film) | T surface film > ≈ 55 °C (tolérance ±5 K typique) | oui | automatique (au refroidissement) |
+| 5 | **TCO_A / TCO_B** 72 °C [H] (un par film) | T surface film > 72 °C | oui | **remplacement** |
+| 6 | **Q9** N-MOSFET côté bas | régulation (même demande que le toit) × limite film 50 °C × soufflantes de plancher en marche × sécurité logicielle | non | automatique |
+
 ## 2. Câblage 230 V (boîtier 230 V)
 
 | Liaison | Section / type | Remarques |
@@ -64,6 +80,7 @@ Chaîne de coupure de l'élément (toutes **en série**, la chauffe n'existe que
 | Entrée H07RN-F 3G1,5 → borniers L, N, PE | 1,5 mm² | presse-étoupe M20 + arrêt de traction ; PE plus long que L/N (dernier arraché) |
 | L → F1 (2 A temporisé) | 1 mm² H05V2-K | F1 protège câblage interne, PS1, élément |
 | F1 → PS1 L ; N → PS1 N | 1 mm² | PS1 encapsulé, fixé par vis, entrées vissées |
+| L (bornier d'entrée) → **F4 1,6 A T** → PS2 L ; N → PS2 N (variante D21) | 1 mm² | PS2 **en amont de F1** et **hors K1** : l'appel de courant d'une alimentation 90 W à la mise sous tension ne doit pas solliciter les contacts de K1 (relais de sécurité de l'élément). La coupure du film par C4 se fait côté 24 V (K2). Variante absente : ne pas câbler PS2/F4. |
 | F1 → K1 contact 11–14 (NO) → SSR1 borne 1 | 1 mm² | K1 coupe la **phase** |
 | SSR1 borne 2 → F2 → F3 → R1 | **1 mm² silicone H05SS-F** à partir de la gaine | F2 et F3 serrés sur la semelle de l'élément ; F3 **serti** (manchons non isolés + gaine silicone), jamais soudé |
 | R1 → K1 contact 21–24 (NO) → N | 1 mm² silicone puis H05V2-K | K1 coupe aussi le **neutre** (coupure bipolaire : l'élément est isolé même si L/N sont inversés à la prise) |
@@ -86,8 +103,10 @@ Le SSR est monté sur son radiateur **hors de la gaine** (dans le boîtier 230 V
  PS1 0 V ── 0 V commun TBTS (flottant : non relié à la PE)
 ```
 
-Budget 12 V **[H]** : soufflante du toit 0,4–0,9 A, plancher 2 × 0,1 A, K1 ≈ 45 mA, K2 ≈ 20 mA, SSR ≈ 12 mA, nœud ≈ 0,25 A → **≈ 1,5 A max**, PS1 2,5 A.
+Budget 12 V **[H]** : soufflante du toit 0,4–0,9 A, plancher 2 × 0,1 A, K1 ≈ 45 mA, K2 ≈ 36 mA (Finder 40.52, 2 RT, variante D21), SSR ≈ 12 mA, nœud ≈ 0,25 A → **≈ 1,5 A max**, PS1 2,5 A.
 Rail 3,3 V (LDO de la DevKitC, 800 mA) : ESP32 (pointes 250 mA), µSD (≤ 100 mA), DS18B20 ×7, SHT45, DS3231 : < 450 mA.
+
+**Rail 24 V (variante D21)** : PS2 (230 V → 24 V, ≈ 90–100 W [H]) alimente **uniquement** le film (60–80 W, 2,5–3,3 A). Son 0 V est relié au 0 V commun TBTS **en un seul point** : la source de Q9 (étoile), pour que le courant du film ne circule pas dans le 0 V des sondes et des tachymètres.
 
 **USB et 5 V simultanés** : la DevKitC peut être alimentée à la fois par l'USB et par la broche 5 V. Pour éviter un retour de courant vers l'ordinateur, utiliser en Phase 1 l'**isolateur USB** (avertissement 8), qui alimente son côté isolé à partir du montage, ou couper le fil 5 V du câble USB **[H]**.
 
@@ -122,9 +141,13 @@ Les DS18B20 sont alimentés en **3,3 V externe** (pas de mode parasite). Un bus 
                           └─ 10 kΩ ── Q5 collecteur (NPN)    (Vgs = −6 V : dans les limites de l'AO3401)
    GPIO 12 ── 4,7 kΩ ── Q5 base ; 100 kΩ GPIO 12 → 0 V (strapping MTDI : DOIT rester BAS au boot)
 
-   PWM (×3, logique inversée, cf. PWM_VENTILO_INVERSE) :
-   GPIO 26 / 27 / 14 ── 1 kΩ ── base Q6 / Q7 / Q8 (NPN) ; collecteur → fil PWM du ventilateur ; émetteur → 0 V
-   (le ventilateur a son propre pull-up interne sur PWM : GPIO HAUT = PWM tiré au 0 V)
+   PWM (×2, logique inversée, cf. PWM_VENTILO_INVERSE) :
+   GPIO 26 ── 1 kΩ ── base Q6 (NPN) ; collecteur → fil PWM de M1 (toit)
+   GPIO 27 ── 1 kΩ ── base Q7 (NPN) ; collecteur → J4/3 → fils PWM de M2 ET M3 reliés sur la
+                                       plaquette de jonction du plancher (PWM commun, D21)
+   (chaque ventilateur a son propre pull-up interne sur PWM : GPIO HAUT = PWM tiré au 0 V ;
+    deux pull-up en parallèle sur un collecteur ouvert : sans conséquence)
+   Q8 et GPIO 14 ne servent plus aux ventilateurs : GPIO 14 commande le film (§3.7).
 
    Tachymètres (×3) :
    fil TACH ── 1 kΩ ──┬── GPIO 34 / 35 / 15
@@ -152,6 +175,8 @@ Brochage connecteurs 4 fils standard (PC) : 1 = 0 V (noir), 2 = +12 V (jaune/rou
 - Phase 2 : watchdog **externe** (TPL5010/STWD100) en série avec cette chaîne (architecture C3) — non câblé en Phase 1.
 
 ### 3.6 Chaîne de sécurité matérielle C4 (indépendante du MCU)
+
+> Variante D21 : **K2 devient un relais 2 RT** (Finder 40.52.9.012, 8 A). Contact 1 : auto-maintien (inchangé). Contact 2 (NO) : **en série dans le +24 V du film**. K2 retombe en même temps que K1 : toute ouverture de C4 coupe aussi le film.
 
 ```
    rail +12 V ── 2,2 kΩ ──┬── VREF = 2,495 V (U7 TL431, réf. reliée à la cathode) ── 1 µF
@@ -195,6 +220,27 @@ Fonctionnement :
 
 Sélection de R_seuil : lire dans la table R/T du fabricant de RT1 la valeur R(45,0 °C) (≈ 4,31 kΩ pour B25/85 = 3977, NTCLE100E3103) ; monter la valeur 0,1 % la plus proche, puis **ajuster au bain** (E3 : point de basculement visé 45,0 ± 0,2 °C ; ≈ 166 Ω/K : une résistance série de 33 Ω décale d'environ +0,2 K vers le froid).
 
+### 3.7 Film chauffant du plancher (variante D21)
+
+```
+   PS2 +24 V ── F5 5 A rapide ── K2 contact 2 (NO) ──┬── TVS SMBJ28A ── 0 V (PS2)
+                                                     └── J5/1 + J5/2 ══ câble M12-T ══►
+        PLANCHER : ── BM_A ── BM_B ── TCO_A ── TCO_B ──┬── film A (35 W) ──┐
+                     (bimétaux NF 55 °C et TCO 72 °C    └── film B (35 W) ──┤
+                      collés sur les films)                                 │
+   ◄══ câble M12-T ══ J5/3 + J5/4 ◄────────────────────────────────────────┘
+   J5/3+4 ──┬── drain Q9 (N-MOSFET logique, IRLB8721 [H])     source Q9 ── 0 V PS2 ── (étoile) 0 V TBTS
+            └── SS34 (anode) ──►|── +24 V (après K2) : roue libre, câble inductif
+   GPIO 14 ── 100 Ω ── grille Q9 ; 100 kΩ grille → source (film coupé si GPIO flottant / en reset)
+```
+
+- **Commande côté bas** : le film reste relié au +24 V (derrière K2) ; Q9 ferme le retour. Q9 est choisi pour une **Vgs(th) max ≤ 2,5 V** et une Rds(on) faible à **3,3 V** de grille : à 3,3 A, Rds(on) ≈ 15 mΩ **[H]** → ≈ 0,17 W, pas de dissipateur. **Mesurer Vds à 3 A en E14.0 : < 0,1 V** ; sinon prendre un MOSFET spécifié à Vgs = 2,5 V ou ajouter un étage de grille en 12 V.
+- **Courant** : 60–80 W / 24 V = **2,5–3,3 A** (film froid : quelques % de plus [H]). Chaque pôle passe par **deux broches** de J5 (≈ 1,7 A par contact pour 12 A admissibles en code T) ; câble 4 × 0,75 mm² minimum ; chute de tension ≈ 0,1 V sur 1 m.
+- **GPIO 14** émet un bref signal au démarrage de l'ESP32 (quelques ms **[H]**) : énergie négligeable dans le film, et K2 n'est fermé qu'après réarmement S3. `hal::initialiser()` le met à BAS en premier.
+- **Pas d'enable dynamique sur le film** (densité de puissance faible, limité par bimétaux et TCO) : boucle figée → watchdog 5 s → reset → GPIO 14 en entrée → pull-down 100 kΩ → film coupé.
+- **Sonde du film** : DS18B20 sur le **bus du toit** (`OW_TOIT`, GPIO 4), prolongé par J4 (broche 8 = DQ via 100 Ω + TVS, broche 5 = +3,3 V via 10 Ω + 100 nF). Une coupure ou un court-circuit du câble du plancher perturbe tout le bus du toit → DÉFAUT `sonde_air` (sens sûr), même variante désactivée : le noter au diagnostic.
+- **Interverrouillage soufflantes** (logiciel) : le film n'est commandé que si les deux soufflantes de plancher sont commandées (> 0 %) **et** leurs tachymètres ≥ 50 % de la vitesse attendue ; sinon il est coupé au pas suivant (2 s). Les bimétaux couvrent le cas « soufflantes arrêtées + MOSFET collé ».
+
 ## 4. Brochage ESP32 (copie exacte de `firmware/include/brochage.h`)
 
 Carte : **ESP32-DevKitC-32E (module WROOM-32E)**. Ne **pas** utiliser un module **WROVER** : ses GPIO 16 et 17 sont réservés à la PSRAM.
@@ -204,7 +250,7 @@ Carte : **ESP32-DevKitC-32E (module WROOM-32E)**. Ne **pas** utiliser un module 
 | 32 | `OW_P1` | 1-Wire embase P1 (peigne centre, 3 sondes) | E/S | pull-up 2,2 kΩ, 100 Ω série, TVS | — |
 | 33 | `OW_P2` | 1-Wire embase P2 (bord gauche, 1 sonde) | E/S | idem | — |
 | 25 | `OW_P3` | 1-Wire embase P3 (bord droit, 1 sonde) | E/S | idem | — |
-| 4 | `OW_TOIT` | 1-Wire interne : T_air (grille de soufflage) + T_retour (aspiration) | E/S | idem | — |
+| 4 | `OW_TOIT` | 1-Wire interne : T_air (grille de soufflage) + T_retour (aspiration) + T_film (surface du film du plancher, via J4/8, variante D21) | E/S | idem | — |
 | 21 | `I2C_SDA` | I²C SDA (SHT45 0x44, DS3231 0x68) | E/S | pull-up 4,7 kΩ | — |
 | 22 | `I2C_SCL` | I²C SCL | S | pull-up 4,7 kΩ | — |
 | 18 | `SD_SCK` | µSD SCK | S | — | — |
@@ -215,8 +261,8 @@ Carte : **ESP32-DevKitC-32E (module WROOM-32E)**. Ne **pas** utiliser un module 
 | 17 | `RELAIS_TRIP` | HAUT = le MCU **ouvre** la chaîne C4 (Q2) | S | 4,7 kΩ, **pull-down 100 kΩ** | flottant au boot = pas d'ouverture |
 | 16 | `C4_ETAT` | retour d'état C4 (U3 PC817) : BAS = armée | E | pull-up 10 kΩ + 10 nF | — |
 | 26 | `PWM_TOIT` | PWM soufflante du toit M1 (inversé) | S | 1 kΩ → Q6 | — |
-| 27 | `PWM_PLANCHER_A` | PWM soufflante plancher M2 (avant) (inversé) | S | 1 kΩ → Q7 | — |
-| 14 | `PWM_PLANCHER_B` | PWM soufflante plancher M3 (arrière) (inversé) | S | 1 kΩ → Q8 | bref signal au boot : sans conséquence |
+| 27 | `PWM_PLANCHER_A` | PWM **commun** des soufflantes de plancher M2 + M3 (inversé) | S | 1 kΩ → Q7 | — |
+| 14 | `FILM_PLANCHER` | HAUT = film 24 V du plancher alimenté (Q9, variante D21) | S | 100 Ω série, **pull-down 100 kΩ** grille → source | bref signal au boot (quelques ms [H]) : énergie négligeable, K2 ouvert avant S3 |
 | 34 | `TACH_TOIT` | tachymètre M1 | E (entrée seule) | **pull-up 10 kΩ externe** + 1 kΩ/10 nF | pas de pull-up interne |
 | 35 | `TACH_PLANCHER_A` | tachymètre M2 | E (entrée seule) | idem | idem |
 | 15 | `TACH_PLANCHER_B` | tachymètre M3 | E | pull-up 10 kΩ + 1 kΩ/10 nF | strapping MTDO : HAUT au boot = normal |
@@ -239,18 +285,29 @@ Carte : **ESP32-DevKitC-32E (module WROOM-32E)**. Ne **pas** utiliser un module 
 | 4 | DQ 1-Wire | GPIO 32 / 33 / 25 (via 100 Ω) |
 | 2 (J1 seulement) | pont vers 0 V côté peigne (identification au multimètre) | non connecté en Phase 1 |
 
-**J4 – plancher, M12 8 broches** (détails : `plancher-phase1.md` §4)
+**J4 – plancher, signaux, M12 8 broches code A** (détails : `plancher-phase1.md` §4 et §7)
 
 | Broche M12 | Signal | Côté nœud |
 |---|---|---|
 | 1 | +12 V ventilateurs (commuté) | drain Q4 |
 | 2 | 0 V | 0 V |
-| 3 | PWM M2 | collecteur Q7 (GPIO 27) |
+| 3 | PWM **commun M2 + M3** | collecteur Q7 (GPIO 27) |
 | 4 | TACH M2 | GPIO 35 (pull-up, RC) |
-| 5 | PWM M3 | collecteur Q8 (GPIO 14) |
+| 5 | +3,3 V sonde du film (D21) — *ex-PWM M3* | rail 3,3 V via 10 Ω + 100 nF |
 | 6 | TACH M3 | GPIO 15 (pull-up, RC) |
 | 7 | 0 V (doublé) | 0 V |
-| 8 | réserve | non connecté |
+| 8 | DQ sonde du film (D21) | bus `OW_TOIT` (GPIO 4) via 100 Ω + TVS |
+
+**J5 – plancher, puissance du film, M12 4 broches code T (24 V DC)** — variante D21 seulement (capuchon d'obturation sinon)
+
+| Broche M12-T | Signal | Côté nœud |
+|---|---|---|
+| 1 | +24 V film | après F5 et K2 contact 2 |
+| 2 | +24 V film (doublé) | idem |
+| 3 | retour film | drain Q9 |
+| 4 | retour film (doublé) | drain Q9 |
+
+Le **codage T** (puissance DC) ne s'accouple ni avec J4 (code A) ni avec les M8 des peignes : aucune inversion possible.
 
 **Boutons et voyant (face latérale)** : S1 noir (départ/acquit, GPIO 0), S2 jaune (TEST SÉCURITÉ, C4), S3 bleu à collerette (RÉARMEMENT C4), LED WS2812B (état firmware). Code couleur de la LED : bleu = ATTENTE (orange : µSD/SHT45 absents), blanc = AUTOTEST, jaune clignotant = MONTÉE, vert clignotant = PALIER, cyan = REFROIDISSEMENT, vert fixe = FIN, rouge = DÉFAUT (clignotant rapide : surtempérature).
 
@@ -264,6 +321,8 @@ Carte : **ESP32-DevKitC-32E (module WROOM-32E)**. Ne **pas** utiliser un module 
 | T_elem | NTC 100 kΩ verre | semelle de l'élément | GPIO 36 | MCU (diagnostic, réglage C5) |
 | H1 | SHT45 + membrane PTFE | sous la plaque centrale, hors flux | I²C | MCU (journal ; avertissement si absent) |
 | F2, F3 | bimétal + TCO | semelle de l'élément, pâte thermique | série 230 V | — |
+| T_film (D21) | DS18B20 TO-92 couché, pâte thermique + ruban alu | **dans le plancher**, sur le film A, côté aval (avant) [H] | bus `OW_TOIT` via J4/5 et J4/8, position `film` | MCU (limite 50 °C / défaut 55 °C, si `plancher_chauffant` = 1) |
+| BM_A/B, TCO_A/B (D21) | bimétal NF 55 °C + TCO 72 °C | collés sur les films A et B | série 24 V du film | — |
 
 ## 7. Contrôles de câblage
 

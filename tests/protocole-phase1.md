@@ -23,6 +23,7 @@
 | E11 | Effet du **sens de la boucle** (toit retourné) | oui | 6–8 h |
 | E12 | Effet des **proportions du cloisonnement** et des **soufflantes de plancher** (`pwm_plancher 0`) | oui | 3 × 6 h |
 | E13 | Coupure secteur en palier | oui | 1 h |
+| E14 | Variante **plancher chauffant d'appoint** (D21) : contrôles de sécurité du film (E14.0) puis **essai comparatif avec / sans** (E14.a/b) | oui | 2 h + 2 × 6 h |
 
 Matériel : BOM §8 (bain, thermomètre de référence, lampe témoin, wattmètre, multimètre CAT III, contrôleur d'isolement 500 V, thermomètre IR, résistances étalons), ordinateur **sur batterie ou avec isolateur USB**, extincteur CO₂, support incombustible, arrêt d'urgence à portée de main.
 
@@ -54,6 +55,9 @@ Console série : 115 200 bauds (`pio device monitor -e esp32`). Commandes utiles
 | E1.9 | Pull-down 100 kΩ sur GPIO 12 et 17, **aucun** pull-up sur GPIO 12 | ohmmètre (carte ESP32 retirée) | conforme |
 | E1.10 | Brochage J1–J4, couleurs des câbles M8/M12 réels | multimètre, tableau `cablage-phase1.md` §5 | conforme, noté au journal |
 | E1.11 | Fil TACH de chaque ventilateur, alimenté **seul** en 12 V sur alimentation de labo, fil en l'air | voltmètre | **< 3,6 V** (sinon NE PAS raccorder à l'ESP32) |
+| E1.12 | *Variante D21* — résistance du film entre J5/1-2 et J5/3-4 (plancher débranché), à froid | ohmmètre | ≈ 24² / P : **≈ 7,2–9,6 Ω** pour 60–80 W (deux films en parallèle) ± 10 % ; ∞ = bimétal/TCO ouvert ou film coupé |
+| E1.13 | *Variante D21* — continuité de chaque bimétal et TCO du film ; isolement film ↔ plaque / grille | ohmmètre | < 0,5 Ω chacun ; aucune continuité vers une pièce métallique |
+| E1.14 | *Variante D21* — pull-down 100 kΩ grille → source de Q9 (GPIO 14), PS2 câblée **en amont de F1 et hors K1**, 0 V de PS2 relié au 0 V TBTS en **un seul point** (source de Q9), aucune liaison 230 V vers J4/J5 | ohmmètre, visuel | conforme `cablage-phase1.md` §3.7 |
 
 **Critère d'E1** : 100 % conforme. Sinon : corriger, refaire E1 complet.
 
@@ -74,7 +78,7 @@ Alimenter en **12 V de laboratoire** (limitation 1,5 A) sur le rail 12 V, puis l
 ## E3 — Étalonnage des sondes et réglage de la chaîne C4
 
 ### E3.a Étalonnage DS18B20 à 42 °C
-Procédure complète : `hardware/peignes-sondes.md` §5 (bain 42,0 °C, 10 relevés, offsets par ROM, contrôles à 38 et 45 °C, constante de temps). Positions à déclarer : `P1_haut`, `P1_centre`, `P1_bas`, `P2`, `P3`, `air`, `retour`.
+Procédure complète : `hardware/peignes-sondes.md` §5 (bain 42,0 °C, 10 relevés, offsets par ROM, contrôles à 38 et 45 °C, constante de temps). Positions à déclarer : `P1_haut`, `P1_centre`, `P1_bas`, `P2`, `P3`, `air`, `retour` (+ `film` pour la sonde de surface du film, variante D21 : étalonnée au bain avec les autres, contrôle supplémentaire à 50 °C).
 **Critères** : écart ≤ ±0,10 °C à 42 °C, ≤ ±0,15 °C à 38 et 45 °C ; dispersion ≤ 0,15 °C.
 
 ### E3.b NTC C4 au bain — point de basculement réel
@@ -182,7 +186,7 @@ Lancer un cycle (E8 raccourci : `param palier_min 90`) et provoquer, l'un après
 | E10.1 | Débrancher P2 en MONTÉE | DÉFAUT `peigne_P2`, chauffe coupée, ventilateurs arrêtés | ≤ 2 pas (4 s) |
 | E10.2 | Débrancher P1 en PALIER | DÉFAUT `peigne_P1` | ≤ 4 s |
 | E10.3 | Bloquer la soufflante du toit (débrancher son connecteur) | DÉFAUT `ventilo_toit` | ≤ 12 s |
-| E10.4 | Débrancher J4 (plancher) | DÉFAUT `ventilo_plancher_A` et `_B` | ≤ 12 s |
+| E10.4 | Débrancher J4 (plancher) | DÉFAUT `ventilo_plancher_A` et `_B` (variante D21 active : `sonde_film` d'abord, en ≤ 6 s, film coupé) | ≤ 12 s |
 | E10.5 | Appui long (3 s) sur S1 en PALIER | REFROIDISSEMENT, chauffe coupée, brassage 15 min, puis FIN | immédiat |
 | E10.6 | S2 (test C4) en MONTÉE | K1 ouvert, DÉFAUT `C4_ouverte` | < 100 ms (K1) / 2 s (firmware) |
 | E10.7 | Débrancher la sonde du bus toit (T_air) si accessible | DÉFAUT `sonde_air` | ≤ 6 s |
@@ -218,6 +222,53 @@ Notes :
 1. En PALIER, actionner l'arrêt d'urgence 10 s puis réarmer.
 2. Attendu (Phase 1, sans FRAM) : nœud éteint puis redémarré en **ATTENTE**, K1 **ouvert** (S3 nécessaire), **aucun redémarrage de la chauffe**, nouveau fichier CSV, événement `DEMARRAGE`. Le cycle interrompu est incomplet (le résumé n'est pas écrit : la reprise après coupure est une fonction de la Phase 2).
 
+## E14 — Variante plancher chauffant d'appoint (D21)
+
+> Prérequis : E1 (dont E1.12–E1.14), E3 (sonde `film` étalonnée), E4, E8 de référence **conformes**. Plancher équipé selon `hardware/plancher-phase1.md` §7, J4 et J5 branchés. Wattmètre en amont de **toute** la ruche (élément + PS1 + PS2). Le film est en 24 V TBTS : les mesures sur J5 se font **plancher posé sur l'établi**, jamais en ouvrant le boîtier 230 V sous tension.
+
+### E14.0 Contrôles de sécurité du film (avant tout cycle)
+
+| N° | Action | Attendu | Critère |
+|---|---|---|---|
+| E14.0.1 | `param plancher_chauffant 1` en ATTENTE ; plancher **sans** sonde de film (J4 débranché) ; `depart` | départ refusé `AUTOTEST_KO` bit **0x2000** (`AT_SONDE_FILM`) | obligatoire |
+| E14.0.2 | Variante active et `param pwm_plancher 0` ; `depart` | départ refusé, bit **0x4000** (`AT_FILM_SANS_SOUFFLANTES`) ; remettre `pwm_plancher 80` | obligatoire |
+| E14.0.3 | Cycle court (ruche vide, sondes à l'ambiante) : en MONTÉE, CSV `film=1` ; mesurer **Vds de Q9** et le courant (pince DC) | I = 2,5–3,3 A ; **Vds < 0,1 V** ; Q9 < 50 °C au toucher IR après 15 min | obligatoire ([H] Vds) |
+| E14.0.4 | **Coupure si soufflantes arrêtées** : en MONTÉE, débrancher le connecteur de M3 sur la plaquette (ou bloquer M3) | `film=0` au pas suivant (≤ 2 s, `raisons_film` bit 8), puis DÉFAUT `ventilo_plancher_B` ≤ 12 s ; T surface du film retombe | obligatoire |
+| E14.0.5 | **Limite 50 °C** : en MONTÉE, réduire le débit de M2/M3 (`pwm_plancher 30` avant départ) et suivre `t_film` | `film` passe à 0 au-delà de 50,0 °C, reprend ≤ 48,0 °C ; pas de DÉFAUT (si 50 °C n'est pas atteint : noter T max, la logique reste couverte par les tests unitaires) | obligatoire |
+| E14.0.6 | **Bimétal** (sans MCU, comme E6) : carte ESP32 retirée, K1/K2 armés (S3), grille de Q9 tirée au **+3,3 V de labo** à la main (MOSFET « collé »), M2/M3 **arrêtées** ; thermomètre IR et thermocouple sur le film | BM s'ouvre (courant → 0) ; noter T surface à l'ouverture ; le film refroidit puis le bimétal se referme (réarmement automatique) | ouverture à **55 ± 5 °C [H]** ; **jamais > 62 °C** ; plaque non déformée |
+| E14.0.7 | **Défaut 55 °C logiciel** : même montage que E14.0.6 mais ESP32 en place, cycle lancé, Q9 forcé (pont grille → 3,3 V via 1 kΩ), soufflantes de plancher débranchées après le départ | DÉFAUT `film_surtemp` (≥ 55 °C pendant 10 s) **ou** bimétal ouvert d'abord (noter lequel) ; si DÉFAUT : **C4 ouverte** (K1 et K2 retombent), **le courant du film tombe à 0 malgré Q9 forcé** (contact de K2) | obligatoire : coupure du film par K2 constatée |
+| E14.0.8 | **TCO** : non testé destructivement sur le prototype ; un TCO de rechange au four de cuisine à 65 puis 78 °C (optionnel) | intact à 65 °C, ouvert à 78 °C | optionnel |
+| E14.0.9 | **S2 (TEST C4)** pendant que le film chauffe | K2 retombe : courant du film à 0 | obligatoire |
+| E14.0.10 | Sonde du film débranchée en cycle (J4/8 coupé sur un câble d'essai) | DÉFAUT `sonde_film` ≤ 6 s, film et toit coupés | obligatoire |
+
+**Critère d'E14.0** : 100 % des points obligatoires conformes. Le seuil du bimétal (50 / 55 / 60 °C) est confirmé ici ; s'il s'ouvre en régime normal (< 50 °C de surface), prendre le seuil supérieur, **jamais au-delà de 60 °C**.
+
+### E14.a / E14.b — Essai comparatif avec / sans plancher chauffant
+
+Deux cycles **E8 à l'identique** (même masse d'eau pesée, même sens de boucle et cloisonnement retenus en E11–E12, `pwm_plancher 80`, `puissance_max` et `pwm_toit` retenus en E5), ambiance à ± 2 °C près, ruche à l'ambiante depuis ≥ 12 h, **ordre alterné** si l'essai est répété :
+
+| Variante | `plancher_chauffant` | Remarque |
+|---|---|---|
+| E14.a | **0** | référence (peut reprendre E8/E12.a si les conditions sont identiques) |
+| E14.b | **1** | film actif, J5 branché |
+
+Grandeurs à extraire (CSV + `RESUME`) :
+
+| Grandeur | Source | Attendu [H] |
+|---|---|---|
+| **Durée de montée** (départ → PALIER) | `montee_s` du résumé | **plus courte** avec le film (chaleur apportée en bas du couvain) : gain à chiffrer |
+| **Écart haut / bas** P1_haut − P1_bas en montée et en palier | colonnes `t_P1_haut`, `t_P1_bas` | réduit avec le film |
+| Écart max entre les 5 sondes en palier (Tmax − Tmin) | `ecart_max` | ≤ 1,0 °C (cible) |
+| Sonde la plus froide (laquelle, combien de temps) | colonnes couvain | change-t-elle avec le film ? |
+| **Énergie par cycle** (kWh) | wattmètre (toute la ruche) | à comparer : plus de puissance mais montée plus courte |
+| Taux de conduction toit / film en palier | colonnes `chauffe`, `film` (moyenne) | répartition de l'apport |
+| **T surface du film max** | `tmax_film` du résumé, colonne `t_film` | **≤ 50,5 °C** ; aucun DÉFAUT `film_surtemp` |
+| Coupures du film par la limite 50 °C | `raisons_film` bit 4 | noter le nombre |
+| T air soufflé max, coupures limite air / couvain | comme E8 | inchangé ou meilleur |
+| État de la plaque et du film au démontage (déformation, décollement, condensation) | visuel, photos | aucun dommage |
+
+**Décision** : la variante est **conservée** pour la suite si elle réduit la durée de montée d'au moins **15 %** ou l'écart haut/bas d'au moins **0,3 °C** **[H]**, sans hausse d'énergie > 10 % et sans aucun déclenchement de sécurité ; sinon elle est abandonnée (simplification) et `plancher_chauffant` reste à 0.
+
 ---
 
 ## 14. Critères de réussite de la Phase 1 (synthèse)
@@ -233,6 +284,7 @@ Notes :
 | Homogénéité | Tmax − Tmin en palier ≤ 1,0 °C (cible), ≤ 1,5 °C (acceptable) | [H] |
 | Énergie | puissance de palier et énergie par cycle mesurées et reportées | mesure |
 | Configuration | sens de boucle, proportions, plancher ventilé ou non, `puissance_max`, `pwm_toit` : décidés et notés | décision |
+| Plancher chauffant (D21) | E14.0 conforme (bimétal, coupure par K2, coupure si soufflantes arrêtées, limite 50 °C) ; essai comparatif E14.a/b fait ; variante conservée ou abandonnée | obligatoire si la variante est montée / décision |
 
 ## 15. Tableau à reporter dans `docs/journal-tests.md`
 
@@ -257,5 +309,7 @@ Ajouter une ligne par essai au tableau existant (`| Date | Phase | Test | Condit
 | | 1 | E12.b plancher off | `pwm_plancher 0` | montée … ; ΔT max … ; P1_haut − P1_bas … °C | |
 | | 1 | E12.c 1/5-3/5-1/5 | réglettes | montée … ; ΔT max … | |
 | | 1 | E13 coupure secteur | AU 10 s en palier | ATTENTE, K1 ouvert, pas de chauffe : o/n | |
+| | 1 | E14.0 sécurité film | film … W, bimétal … °C | I film … A ; Vds Q9 … V ; coupure soufflantes … s ; limite 50 °C o/n ; bimétal ouvert à … °C ; K2 coupe le film o/n ; S2 o/n ; sonde débranchée o/n | |
+| | 1 | E14.a/b avec/sans film | idem E8, T amb … / … °C | montée … / … min ; P1_haut − P1_bas … / … °C ; ΔT max palier … / … °C ; E … / … kWh ; tmax_film … °C → variante : conservée / abandonnée | |
 
 Conserver, pour chaque essai : le fichier CSV, la sortie de `param` et de `sondes`, des photos du montage, et la version du firmware (`# firmware=… version=…` en tête du CSV).

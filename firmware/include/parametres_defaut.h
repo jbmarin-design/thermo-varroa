@@ -12,7 +12,7 @@
 #include <cstdint>
 
 #define FIRMWARE_NOM     "thermo-varroa-noeud"
-#define FIRMWARE_VERSION "0.1.0-phase1"
+#define FIRMWARE_VERSION "0.2.0-phase1"  // 0.2 : variante plancher chauffant (D21)
 
 namespace defauts {
 
@@ -115,6 +115,22 @@ constexpr uint32_t DUREE_TEST_VENTILO_MS = 8000; // test au départ
 constexpr uint8_t  IMPULSIONS_PAR_TOUR  = 2;
 constexpr uint32_t FREQ_PWM_VENTILO_HZ  = 25000;
 
+// --- Variante « plancher chauffant d'appoint » (décision D21) ------------------------------
+// Film chauffant 24 V DC 60–80 W [H] collé sur la plaque d'obturation du plancher, SOUS la
+// grille (inaccessible aux abeilles). Commande TOR par MOSFET (GPIO FILM_PLANCHER), qui suit la
+// MÊME demande que le toit (TOR sur la sonde couvain la plus froide + limites couvain/air), avec
+// une limite propre sur la sonde de surface du film. Interdit si les soufflantes de plancher ne
+// tournent pas (point chaud). Paramètre `plancher_chauffant` (0/1) : défaut 0 = désactivé.
+// Couches matérielles indépendantes du MCU (documentaires ici) : bimétal NF 55 °C + TCO 72 °C en
+// série dans le 24 V du film, contact de K2 (chaîne C4) en série.
+constexpr uint8_t  PLANCHER_CHAUFFANT_DEFAUT = 0;
+constexpr float    T_FILM_MAX_REG    = 50.0f;  // surface du film : au-delà, film coupé (C1) ...
+constexpr float    HYST_FILM         = 2.0f;   // ... reprise si T film <= 48,0 °C [H]
+constexpr float    T_FILM_DEFAUT     = 55.0f;  // surface du film >= 55 °C ...
+constexpr uint32_t T_FILM_DEFAUT_S   = 10;     // ... pendant 10 s = DÉFAUT verrouillé (C2)
+constexpr float    T_BIMETAL_FILM    = 55.0f;  // [H] documentaire : bimétal NF, tolérance ±5 K typique
+constexpr float    T_TCO_FILM        = 72.0f;  // [H] documentaire : fusible thermique non réarmable
+
 // --- Enable dynamique du SSR (C3) ---------------------------------------------------------
 constexpr uint32_t FREQ_ENABLE_SSR_HZ = 500;   // signal carré (basculé en logiciel toutes les 1 ms) exigé par la pompe de charge
 constexpr uint32_t JETON_SSR_MAX_AGE_MS = 3000; // la boucle principale doit rafraîchir le jeton : sinon plus de signal
@@ -152,6 +168,10 @@ static_assert(T_PALIER_MIN < T_CONSIGNE_PALIER, "le seuil de palier doit être s
 static_assert(T_COEUR_REPRISE < T_COEUR_MAX_REG, "hystérésis couvain incohérente");
 static_assert(DUREE_PALIER_MIN >= DUREE_PALIER_BORNE_MIN && DUREE_PALIER_MIN <= DUREE_PALIER_BORNE_MAX,
               "durée de palier hors bornes");
+static_assert(T_FILM_MAX_REG < T_FILM_DEFAUT, "limite de régulation du film < seuil de défaut");
+static_assert(T_FILM_DEFAUT < T_PLAUSIBLE_MAX, "la sonde du film doit rester plausible au seuil de défaut");
+static_assert(T_FILM_DEFAUT < T_TCO_FILM, "le défaut logiciel du film doit précéder le TCO");
+static_assert(HYST_FILM > 0.0f && HYST_FILM < 5.0f, "hystérésis du film incohérente");
 static_assert(DUREE_PALIER_BORNE_MAX + TIMEOUT_MONTEE_BORNE_MAX <= DUREE_CHAUFFE_MAX_MIN + 30,
               "durées incompatibles avec la durée max de chauffe");
 

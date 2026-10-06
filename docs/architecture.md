@@ -9,7 +9,7 @@
 
 | # | Sujet | Décision |
 |---|---|---|
-| D1 | Emplacement de la chauffe | **Pas de plancher chauffant** : le plancher Nicot fait ~2 cm. Tout est intégré dans un **module de toit** qui remplace le toit Nicot : électronique, élément chauffant, ventilateur, sécurités. |
+| D1 | Emplacement de la chauffe | **Pas de plancher chauffant** : le plancher Nicot fait ~2 cm. Tout est intégré dans un **module de toit** qui remplace le toit Nicot : électronique, élément chauffant, ventilateur, sécurités. *(Complété par D21 : film TBTS d'appoint en variante, le chauffage principal reste au toit.)* |
 | D2 | Répartition de la chaleur | **Boucle d'air forcée** : le toit chauffe et souffle, l'air traverse les cadres, un **plancher fermé imprimé en 3D** (≤ 2 cm, le plancher Nicot n'étant pas hermétique) sert de plénum de retour. Deux schémas de retour comparés au §1.2. |
 | D3 | Sondes | **Indépendantes du toit** : peignes de sondes posés d'abord dans le couvain, puis le toit est posé et les sondes s'y **branchent** par connecteurs étanches détrompés (§4.2). Prototype : 5 points couvain (centre, 2 bords, haut, bas). |
 | D4 | Reine | **Boîtier séparé, hors du toit** (le toit est la zone la plus chaude), régulé à 38 °C pendant le traitement et 24 h après, recevant une **cage de reine Nicot standard** (reine + accompagnatrices + candi). |
@@ -28,6 +28,7 @@
 | D17 | Réintroduction de la reine | Conduite apicole classique (cage d'introduction selon les pratiques habituelles) : hors du périmètre du système. |
 | D19 | Redescente | **Pilotée** en rampe vers l'état de départ (température de couvain relevée au début du cycle), pour ménager la colonie. |
 | D20 | Critère d'équilibre entrée/sortie d'air | **Non retenu comme condition** : le démarrage du chrono reste « les 5 sondes couvain ≥ 42,0 °C pendant 5 min », mesure directe du couvain. L'écart air soufflé / air de retour est journalisé comme indicateur. |
+| D21 | Plancher chauffant d'appoint | **Variante validée par l'apiculteur**, en plus du chauffage principal du toit (inchangé) : **film chauffant 24 V DC (TBTS, jamais de 230 V dans le plancher), 60–80 W**, ≈ 400 × 300 mm **[H]**, collé sur la plaque d'obturation du plancher fermé, dans le plénum de retour, **sous la grille** (inaccessible aux abeilles) ; surface visée ≤ 50 °C (≈ 0,06 W/cm²). Alimentation 24 V dédiée, MOSFET côté bas piloté par l'ESP32 ; il suit la **même demande de chauffe** que le toit, limite propre 50 °C, DÉFAUT à 55 °C, **interdit si les soufflantes de plancher ne tournent pas**. Sécurités indépendantes du MCU : bimétal NF 55 °C + TCO 72 °C **[H]** en série, contact de K2 (chaîne C4). Paramètre `plancher_chauffant` (défaut 0) pour l'**essai comparatif** avec / sans (protocole E14). Détails : §1.2 « Variante : plancher chauffant d'appoint », `hardware/plancher-phase1.md` §7. |
 | D18 | Identification des ruches | Pas de QR code propre au projet pour l'instant. Piste pour la Phase 4 : **se greffer sur l'identification par code-barres déjà utilisée par l'apiculteur ou par des logiciels de gestion de rucher** (scan de la ruche → association du traitement). |
 
 ### Base scientifique des consignes
@@ -174,6 +175,25 @@ Plutôt que de fabriquer un plancher, on **ferme un plancher Nicot aéré exista
 - obturer la grille par le dessous : plaque pleine glissée dans la glissière du lange de comptage varroa si elle existe, sinon plaque PVC fixée par le dessous avec joint ;
 - l'espace entre la grille et la plaque devient le **plénum de retour** ; les abeilles restent au-dessus de la grille et n'ont pas accès aux ventilateurs.
 
+#### Variante : plancher chauffant d'appoint (D21)
+
+Constat : la chaleur arrive par le **haut** (toit) et le bas du couvain est le dernier à atteindre 42,0 °C ; or c'est la sonde la plus froide qui fixe la durée de montée. Un **apport au bas** de la boucle, dans l'air de retour qui remonte ensuite par les ruelles avant, doit raccourcir la montée et réduire l'écart haut/bas **[H] — à mesurer (E14)**.
+
+```
+   Coupe AVANT ↔ ARRIÈRE — plancher fermé avec film (cotes [H])
+   ├──────────────────────────────────────────────────────────────────────┤ ← corps / cadres
+   │ ##### grille Nicot (les abeilles restent au-dessus) ################ │ ← 0
+   │   ◄── M2 ◄──────── air de retour (≈ 42 °C) ◄────────────── M3 ◄──     │
+   │ ▓▓▓▓▓▓▓▓▓▓▓▓ film 24 V 60–80 W, ≈ 400 × 300 mm, ≤ 50 °C ▓▓▓▓▓▓▓▓▓▓▓▓ │ ← ≈ 15,3 mm
+   │ ══════════ plaque d'obturation 3 mm (support du film) ══════════════ │ ← 16 mm
+```
+
+- **Principe** : film polyimide ou silicone **24 V DC** (TBTS : jamais de 230 V dans le plancher, qui est manipulé et proche des abeilles), collé sur la face supérieure de la plaque d'obturation, entre et autour des soufflantes M2/M3. Densité de puissance faible (≈ 0,06 W/cm²) : surface ≈ 45–50 °C en air brassé **[H]**.
+- **Commande** : MOSFET canal N logique côté bas (GPIO 14), même demande que le toit (TOR sur la sonde couvain la plus froide, en MONTÉE, PALIER et pendant la redescente pilotée), limites couvain et air comprises ; limite propre sur une **DS18B20 de surface** du film (> 50 °C → coupé jusqu'à 48 °C) ; **DÉFAUT verrouillé** si ≥ 55 °C pendant 10 s ou sonde du film invalide (variante active). Jamais de film si une soufflante de plancher est arrêtée ou lente (point chaud sous la grille).
+- **Couches indépendantes du MCU** : bimétal NF 55 °C et fusible thermique 72 °C collés sur le film, en série dans son 24 V ; second contact de **K2** (relais d'auto-maintien de C4) en série : une ouverture de C4 (dépassement 45 °C, bouton TEST, ou MCU sur défaut `film_surtemp`) coupe aussi le film, même avec un MOSFET en court-circuit.
+- **Câblage** : J4 (M12 8 broches, signaux) reçoit en plus la sonde du film ; le 24 V passe par un connecteur de puissance séparé **J5 (M12 code T, 4 broches)** — justification dans `hardware/plancher-phase1.md` §7.4.
+- **Désactivée par défaut** (`plancher_chauffant 0`) : sans la variante, aucune exigence sur la sonde du film, comportement strictement inchangé.
+
 #### Ventilateurs de plancher : recommandés
 
 C'est vraisemblablement **le facteur déterminant** pour l'uniformité : la soufflante du toit pousse l'air vers le bas, mais le passage le plus étroit de la boucle est sous les cadres. Deux micro-soufflantes dans le plancher réduisent cette résistance et tirent l'air d'un bout à l'autre.
@@ -221,7 +241,7 @@ Débit de dimensionnement **[H] — corrigé en Phase 1** : l'estimation initial
 | **Nœud ruche** | Régulation et sécurités logicielles d'**une** ruche, autonome | ESP32 (module WROOM-32E ou S3), bus 1-Wire sondes, I²C (SHT45, FRAM, RTC en Ph.1), µSD (peuplée en Ph.1, optionnelle ensuite), transceiver RS-485 isolé (non peuplé en Ph.1), LED tricolore, bouton départ/acquittement, sortie SSR via « enable dynamique », 3 embases M8 pour les peignes (un bus 1-Wire chacune), entrée tachymètre soufflante, retour d'état de la chaîne de sécurité | Ph.1 |
 | **Chaîne de sécurité matérielle** | Coupure de chauffe **indépendante du MCU** | Comparateur analogique + NTC dédiée à la sortie d'air (seuil 45,0 °C, auto-maintien, réarmement manuel), relais électromécanique en série avec le SSR, bimétal réarmement manuel + fusible thermique (TCO) sur l'élément | Ph.1 (bimétal/TCO), Ph.2 (comparateur) |
 | **Module de toit** | Remplacer le toit Nicot ; produire la chaleur et la faire circuler sans point chaud accessible | **Toit Nicot existant** équipé à l'intérieur (D10) : isolant, gaine de chauffe (élément 230 V classe II + soufflante radiale 12 V), grille de soufflage, compartiment électronique côté froid, embases M8 pour les peignes, sondes intégrées (air soufflé, élément, NTC sécu, SHT45) | Ph.1 |
-| **Plancher fermé** | Rendre la ruche étanche par le bas et servir de plénum de retour | ≤ 2 cm au format du plancher Nicot (~50 × 40 cm). Deux fabrications possibles : **plaque découpée** (PVC expansé ou polycarbonate) + joint périphérique, ou **impression 3D en 2–4 segments** assemblés (aucune imprimante courante n'imprime 50 × 40 d'une pièce). Logements optionnels pour 1–2 soufflantes 40 × 40 × 10 mm | Ph.1 |
+| **Plancher fermé** | Rendre la ruche étanche par le bas et servir de plénum de retour | ≤ 2 cm au format du plancher Nicot (~50 × 40 cm). Deux fabrications possibles : **plaque découpée** (PVC expansé ou polycarbonate) + joint périphérique, ou **impression 3D en 2–4 segments** assemblés (aucune imprimante courante n'imprime 50 × 40 d'une pièce). Logements optionnels pour 1–2 soufflantes 40 × 40 × 10 mm. **Variante D21** : film chauffant 24 V 60–80 W collé sur la plaque, sonde de surface, bimétal + TCO | Ph.1 |
 | **Peignes de sondes** | Mesurer le couvain, indépendants du toit | Lames fines (fibre de verre ou inox, ~2 mm) glissées dans les ruelles, portant les sondes ; câble vers connecteur M8 détrompé (§4.2) | Ph.1 |
 | **Couveuse à reines** | Maintenir les reines à 38 °C pendant le traitement + 24 h, **hors des ruches** | Boîtier isolé recevant des **cages de reine Nicot standard** (1 en prototype, 20 en lot), module Peltier réversible + dissipateur, sonde dédiée + bimétal, alimentation 12/24 V autonome (§4.3 bis) | Ph.3 |
 | **Contrôleur de lot** | Coordination de 20 nœuds : départs échelonnés, budget de puissance, horodatage commun, journal centralisé, télémétrie | ESP32-S3, RS-485 maître, RTC DS3231, µSD industrielle, écran + boutons (départ lot, acquittements), lecture compteur d'énergie, lien Ethernet/Wi-Fi vers le routeur | Ph.5 (Ph.4 en version mono-ruche) |
@@ -299,6 +319,9 @@ Valeurs par défaut des paramètres (toutes paramétrables **dans des bornes fig
 | `TIMEOUT_REFROID` | 180 min | |
 | `DUREE_CHAUFFE_MAX` | 6 h | durée absolue max chauffe active, toutes phases |
 | `ECART_SONDES_MAX` | 3,0 °C en palier | incohérence entre sondes couvain **[H]** à ajuster en Ph.1 |
+| `plancher_chauffant` | 0 (désactivé) | variante D21 : film 24 V du plancher ; modifiable en ATTENTE seulement, 0/1 |
+| `T_FILM_MAX_REG` | 50,0 °C, hystérésis 2,0 °C | surface du film : au-delà, film coupé (non bloquant) ; figé à la compilation |
+| `T_FILM_DEFAUT` | 55,0 °C pendant 10 s | surface du film → DÉFAUT verrouillé (+ ouverture de C4, qui coupe aussi le film via K2) |
 
 > **Pourquoi « plus froide » pour réguler et « plus chaude » pour couper** : le palier ne commence qu'une fois que *tout* le couvain instrumenté a atteint la consigne — on ne coupe donc jamais parce que le cœur est en retard. Les coupures, elles, surveillent la zone la plus exposée. Si l'écart entre la plus froide et la plus chaude empêche d'atteindre 42,0 °C partout sans dépasser 43,5 °C ailleurs, c'est la **circulation d'air** qui est en cause (option A/B, débit), pas les seuils : le cycle passe en DÉFAUT « homogénéité insuffisante » plutôt que de surchauffer.
 
@@ -397,6 +420,7 @@ Objectif : **aucune surface ni aucun flux d'air accessible aux abeilles au-dessu
 | **C2 — Logiciel supervision** (module `securite`) | Seuils, plausibilité, cohérence, sonde figée, palier non atteint, homogénéité, SSR collé, ventilateur, durée max, watchdog | 44,0 / 44,5 °C | non | DÉFAUT verrouillé, acquittement local |
 | **C3 — Watchdogs** | Watchdog de tâches ESP-IDF + watchdog **externe** (circuit dédié type TPL5010/STWD100) + **enable dynamique** du SSR | — | partiellement | reset MCU → ATTENTE |
 | **C4 — Coupure matérielle air** | Comparateur analogique + NTC dédiée au point le plus chaud accessible (grille de soufflage du toit) → relais électromécanique **en série** avec le SSR, à auto-maintien | **45,0 °C** | **oui** | **manuel** (bouton sur boîtier) |
+| **C5 bis — Film du plancher (D21)** | Bimétal NF ~55 °C + TCO ~72 °C collés sur le film, en série dans son 24 V ; contact de K2 (C4) en série ; MOSFET commandé seulement si les soufflantes de plancher tournent | 55 / 72 °C **[H]** | **oui** (bimétal, TCO, K2) | manuel / remplacement |
 | **C5 — Coupure matérielle élément** | Thermostat bimétal à réarmement manuel collé sur l'élément + fusible thermique (TCO) non réarmable en série | à fixer en Ph.1 **[H]** (≈ T élément max en régime normal + 10 °C, typiquement 60–75 °C) | **oui** | manuel / remplacement |
 | **C6 — Électrique** | DDR 30 mA, disjoncteurs, arrêt d'urgence sur contacteur général, éléments classe II, connectique IP67 | — | oui | manuel |
 
@@ -582,6 +606,15 @@ Volume indicatif : 20 ruches × ~10 grandeurs × 1 point/10 s × 10 h ≈ 720 00
 | **Élément retenu** | **250 W** (marge ~15–40 %) | |
 | Énergie par cycle (montée 1,5 h + palier 2 h) | ≈ 0,45 kWh | ≈ 0,65 kWh |
 | Avec isolation Ph.6 (palier ≈ 40–60 W) | ≈ 0,3 kWh | ≈ 0,4 kWh |
+
+#### Variante plancher chauffant d'appoint (D21)
+
+| Poste | Valeur **[H]** |
+|---|---|
+| Puissance installée supplémentaire | **+60 à 80 W** (film 24 V), soit 310–330 W par ruche avec l'élément du toit ; côté secteur ≈ +70–90 W (rendement de l'alimentation 24 V ≈ 88 %) |
+| Durée de montée | **attendue plus courte** : la chaleur arrive en bas du couvain, là où se trouve habituellement la sonde la plus froide ; gain non chiffré, **à mesurer** (E14) |
+| Énergie par cycle | pas forcément plus élevée : plus de puissance pendant une montée plus courte ; en palier, le film suit le TOR et ne fait que **répartir** l'apport (toit + plancher) — à mesurer (E14) |
+| Conséquence lot (Ph.5) | crête d'un sous-lot en montée 5 × 330 W ≈ **1,65 kW** (au lieu de 1,25 kW) ; si la variante est retenue, refaire le budget du §5.4 (≈ +0,4 kW de crête) |
 
 ### 5.3 Par sous-lot de 5 ruches
 

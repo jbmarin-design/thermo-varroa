@@ -6,8 +6,10 @@
 namespace tv {
 
 namespace {
+// DEF_FILM_SURTEMP en fait partie : l'ouverture de C4 par le MCU fait retomber K2, dont le
+// second contact est en série dans le 24 V du film (coupure indépendante d'un MOSFET collé).
 constexpr uint32_t DEFAUTS_SURTEMP = DEF_AIR_SURTEMP | DEF_COUVAIN_SURTEMP | DEF_BRUTE_45 | DEF_DUREE_MAX |
-                                   DEF_SSR_COLLE;
+                                   DEF_SSR_COLLE | DEF_FILM_SURTEMP;
 }
 
 const char* defaut_texte(uint32_t bit) {
@@ -31,6 +33,8 @@ const char* defaut_texte(uint32_t bit) {
         case DEF_SSR_COLLE:          return "ssr_colle";
         case DEF_CHAUFFE_INEFFICACE: return "chauffe_inefficace";
         case DEF_HOMOGENEITE:        return "homogeneite";
+        case DEF_FILM_SURTEMP:       return "film_surtemp";
+        case DEF_SONDE_FILM:         return "sonde_film";
         default:                     return "?";
     }
 }
@@ -77,6 +81,16 @@ void Securite::evaluer(const Mesures& m, const ContexteSecurite& c, uint32_t mai
         if (couvain_haut_ms_ >= defauts::T_COEUR_DEFAUT_S * 1000u) defauts_ |= DEF_COUVAIN_SURTEMP;
     } else {
         couvain_haut_ms_ = 0;
+    }
+
+    // --- Plancher chauffant : surface du film >= 55 °C pendant 10 s -----------------------
+    // Évalué en permanence dès que la sonde du film est valide, que la variante soit active
+    // ou non (un MOSFET collé chaufferait aussi hors cycle ou variante désactivée).
+    if (m.t_film.valide && m.t_film.t >= defauts::T_FILM_DEFAUT) {
+        film_haut_ms_ += dt;
+        if (film_haut_ms_ >= defauts::T_FILM_DEFAUT_S * 1000u) defauts_ |= DEF_FILM_SURTEMP;
+    } else {
+        film_haut_ms_ = 0;
     }
 
     // --- Valeur brute > 45 °C, 3 fois de suite = immédiat ---------------------------
@@ -134,6 +148,8 @@ void Securite::evaluer(const Mesures& m, const ContexteSecurite& c, uint32_t mai
         if (!m.embases[e].conforme) defauts_ |= code_peigne[e];
     }
     if (!m.t_air.valide) defauts_ |= DEF_SONDE_AIR;
+    // Sonde du film : critique UNIQUEMENT si la variante plancher chauffant est active.
+    if (c.plancher_chauffant && !m.t_film.valide) defauts_ |= DEF_SONDE_FILM;
 
     // --- Chaîne matérielle C4 ouverte pendant le cycle ----------------------------
     if (!m.c4_fermee) defauts_ |= DEF_C4_OUVERTE;
@@ -181,6 +197,9 @@ bool Securite::acquitter(const Mesures& m) {
     if (m.embases[EMBASE_P2].conforme) restant &= ~static_cast<uint32_t>(DEF_PEIGNE_P2);
     if (m.embases[EMBASE_P3].conforme) restant &= ~static_cast<uint32_t>(DEF_PEIGNE_P3);
     if (m.t_air.valide) restant &= ~static_cast<uint32_t>(DEF_SONDE_AIR);
+    // Film : acquittable une fois la surface revenue sous la limite de régulation (50 °C).
+    if (m.t_film.valide && m.t_film.t < defauts::T_FILM_MAX_REG) restant &= ~static_cast<uint32_t>(DEF_FILM_SURTEMP);
+    if (m.t_film.valide) restant &= ~static_cast<uint32_t>(DEF_SONDE_FILM);
     if (m.c4_fermee) restant &= ~static_cast<uint32_t>(DEF_C4_OUVERTE);
     // Ventilateurs, timeouts, palier perdu, auto-test, durée max : constat de fin de cycle,
     // effacés par l'acquittement (le prochain départ refait l'auto-test complet).
@@ -190,7 +209,7 @@ bool Securite::acquitter(const Mesures& m) {
     // DEF_PARAMETRES : jamais effacé ici (il faut réécrire des paramètres valides).
     defauts_ = restant;
     if (defauts_ == DEF_AUCUN) {
-        air_haut_ms_ = couvain_haut_ms_ = 0;
+        air_haut_ms_ = couvain_haut_ms_ = film_haut_ms_ = 0;
         brute_45_n_ = 0;
         chauffe_cumulee_ms_ = 0;
         ssr_off_ms_ = 0;

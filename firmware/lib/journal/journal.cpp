@@ -47,6 +47,7 @@ int journal_entete_colonnes(char* buf, size_t n) {
     for (uint8_t i = 0; i < NB_SONDES_COUVAIN; ++i) t.ajouter(";t_%s", NOMS_COUVAIN[i]);
     t.texte(";t_air;t_retour;t_elem;sht_t;sht_hr;rpm_toit;rpm_plA;rpm_plB;pwm_toit;pwm_plA;pwm_plB");
     t.texte(";chauffe;demande_reg;raisons_coupure;c4_fermee;relais_trip;defauts;avert;palier_s;hors_plage_s;chauffe_cum_s");
+    t.texte(";t_film;film;raisons_film");
     return t.longueur();
 }
 
@@ -75,6 +76,8 @@ int journal_ligne_mesures(const Mesures& m, const ContexteLigne& c, char* buf, s
               static_cast<unsigned long>(c.defauts), static_cast<unsigned long>(c.avertissements),
               static_cast<unsigned long>(c.palier_cumule_s), static_cast<unsigned long>(c.hors_plage_s),
               static_cast<unsigned long>(c.chauffe_cumulee_s));
+    t.temp(m.t_film.valide, m.t_film.t);
+    t.ajouter(";%u;%u", c.film ? 1u : 0u, static_cast<unsigned>(c.raisons_film));
     return t.longueur();
 }
 
@@ -113,6 +116,7 @@ int journal_resume(const Horodatage& h, uint32_t t_ms, const ResumeCycle& r, cha
               static_cast<unsigned long>(r.duree_montee_s), static_cast<unsigned long>(r.palier_cumule_s),
               static_cast<unsigned long>(r.hors_plage_s), static_cast<unsigned long>(r.duree_cycle_s),
               r.palier_complet ? 1u : 0u, static_cast<double>(r.tmax_air), static_cast<double>(r.ecart_max_palier));
+    d.ajouter(" tmax_film=%.2f", static_cast<double>(r.tmax_film));
     for (uint8_t i = 0; i < NB_SONDES_COUVAIN; ++i) {
         d.ajouter(" tmax_%s=%.2f", NOMS_COUVAIN[i], static_cast<double>(r.tmax_couvain[i]));
     }
@@ -135,9 +139,10 @@ int journal_metadonnees(uint8_t index, const Parametres& p, const char* id_ruche
                       static_cast<unsigned long>(p.timeout_montee_min));
             break;
         case 3:
-            t.ajouter("# pwm_toit=%u pwm_plancher=%u rpm_nom_toit=%u rpm_nom_plancher=%u",
+            t.ajouter("# pwm_toit=%u pwm_plancher=%u rpm_nom_toit=%u rpm_nom_plancher=%u plancher_chauffant=%u",
                       static_cast<unsigned>(p.pwm_toit_pct), static_cast<unsigned>(p.pwm_plancher_pct),
-                      static_cast<unsigned>(p.rpm_nominal_toit), static_cast<unsigned>(p.rpm_nominal_plancher));
+                      static_cast<unsigned>(p.rpm_nominal_toit), static_cast<unsigned>(p.rpm_nominal_plancher),
+                      static_cast<unsigned>(p.plancher_chauffant));
             break;
         case 4:
             t.ajouter("# limites: palier_min=%.1f coeur_max_reg=%.1f coeur_defaut=%.1f air_max_reg=%.1f "
@@ -145,6 +150,12 @@ int journal_metadonnees(uint8_t index, const Parametres& p, const char* id_ruche
                       static_cast<double>(defauts::T_PALIER_MIN), static_cast<double>(defauts::T_COEUR_MAX_REG),
                       static_cast<double>(defauts::T_COEUR_DEFAUT), static_cast<double>(defauts::T_AIR_MAX_REG),
                       static_cast<double>(defauts::T_AIR_DEFAUT), static_cast<double>(defauts::T_C4_MATERIEL));
+            break;
+        case 5:
+            t.ajouter("# film: max_reg=%.1f hyst=%.1f defaut=%.1f/%lus bimetal=%.0f tco=%.0f",
+                      static_cast<double>(defauts::T_FILM_MAX_REG), static_cast<double>(defauts::HYST_FILM),
+                      static_cast<double>(defauts::T_FILM_DEFAUT), static_cast<unsigned long>(defauts::T_FILM_DEFAUT_S),
+                      static_cast<double>(defauts::T_BIMETAL_FILM), static_cast<double>(defauts::T_TCO_FILM));
             break;
         default: return 0;
     }

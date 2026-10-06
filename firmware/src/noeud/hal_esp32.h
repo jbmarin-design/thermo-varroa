@@ -19,6 +19,9 @@ void initialiser();
 // --- Chauffe -------------------------------------------------------------------
 /// Commande de chauffe voulue (rafraîchit aussi le jeton de l'enable dynamique).
 void commande_chauffe(bool chauffe);
+/// Film chauffant du plancher (variante D21) : HAUT sur FILM_PLANCHER = MOSFET Q9 passant.
+/// Les bimétal 55 °C, TCO 72 °C et contact de K2 en série restent indépendants de cette commande.
+void commande_film(bool film);
 /// Le MCU ouvre la chaîne C4 (HAUT sur RELAIS_TRIP). false = ne force rien.
 void ouvrir_c4(bool ouvrir);
 bool c4_fermee();
@@ -34,8 +37,8 @@ void demarrer_conversion(tv::Mesures& m, const tv::TableEtalonnage& etal);
 /// Lit les scratchpads (à appeler >= DUREE_CONVERSION_MS après le démarrage).
 void lire_conversion(tv::Mesures& m);
 
-/// Sondes du bus interne au toit (air + retour), pour la console d'étalonnage.
-/// trouvees = nombre vu au dernier balayage (> 2 : sonde en trop).
+/// Sondes du bus interne au toit (air + retour + film du plancher via J4), pour la console.
+/// trouvees = nombre vu au dernier balayage (> 3 : sonde en trop).
 const tv::LectureSonde* sondes_toit(uint8_t& n, uint8_t& trouvees);
 
 // --- Autres capteurs -----------------------------------------------------------------

@@ -14,7 +14,8 @@ constexpr uint8_t OW_P1   = 32;  // embase P1 (peigne centre, 3 sondes) — pull
 constexpr uint8_t OW_P2   = 33;  // embase P2 (peigne bord gauche, 1 sonde)
 constexpr uint8_t OW_P3   = 25;  // embase P3 (peigne bord droit, 1 sonde)
 constexpr uint8_t OW_TOIT = 4;   // T_air (grille de soufflage) + T_retour (bande d'aspiration),
-                                 // câblage interne au toit ; distinguées par leur position d'étalonnage
+                                 // câblage interne au toit ; distinguées par leur position d'étalonnage.
+                                 // + T_film (surface du film du plancher, variante D21) via J4.
 
 // --- I2C : SHT45 (0x44) + RTC DS3231 (0x68) ---------------------------------
 constexpr uint8_t I2C_SDA = 21;
@@ -36,8 +37,10 @@ constexpr uint8_t C4_ETAT      = 16;  // phototransistor de l'optocoupleur U3 (P
 
 // --- Ventilation ----------------------------------------------------------------
 constexpr uint8_t PWM_TOIT        = 26;
-constexpr uint8_t PWM_PLANCHER_A  = 27;
-constexpr uint8_t PWM_PLANCHER_B  = 14;  // émet un bref signal au boot : sans conséquence sur un ventilateur
+constexpr uint8_t PWM_PLANCHER_A  = 27;  // PWM COMMUN aux deux soufflantes de plancher M2 + M3 (Q7) :
+                                         // elles ont toujours reçu la même consigne (`pwm_plancher`).
+                                         // Libère GPIO 14 (commande du film, D21) et une broche de J4.
+                                         // Les tachymètres restent séparés (défaut par soufflante).
 constexpr uint8_t TACH_TOIT       = 34;  // entrée seule : pull-up 10 kΩ externe vers 3,3 V + RC
 constexpr uint8_t TACH_PLANCHER_A = 35;  // idem
 constexpr uint8_t TACH_PLANCHER_B = 15;  // pull-up 10 kΩ (strapping MTDO : HAUT au boot = normal)
@@ -48,6 +51,15 @@ constexpr uint8_t ALIM_VENTILOS   = 12;  // HAUT = 12 V appliqué aux 3 soufflan
                                          // de tourner (comportement non normalisé).
 // GPIO 39 laissé LIBRE : errata ESP32 n°3.11 — avec l'ADC actif (NTC élément sur GPIO 36),
 // les entrées 36/39 voient de fausses impulsions : interdit pour un tachymètre de sécurité.
+
+// --- Variante plancher chauffant d'appoint (D21) -------------------------------------------
+constexpr uint8_t FILM_PLANCHER   = 14;  // HAUT = film 24 V du plancher alimenté (grille du N-MOSFET
+                                         // logique Q9 côté bas, 100 Ω série, pull-down 100 kΩ).
+                                         // Ex-PWM_PLANCHER_B. GPIO 14 émet un bref signal au boot
+                                         // (quelques ms [H]) : énergie négligeable dans un film de
+                                         // 60–80 W ; mis à BAS en premier dans hal::initialiser().
+// La sonde de surface du film (DS18B20, position « film ») est sur le bus OW_TOIT, prolongé
+// jusqu'au plancher par J4 (broches 5 = +3,3 V, 8 = DQ).
 
 // --- Divers ----------------------------------------------------------------------
 constexpr uint8_t NTC_ELEMENT = 36;  // ADC1_CH0 (SENSOR_VP) : NTC élément, DIAGNOSTIC seulement

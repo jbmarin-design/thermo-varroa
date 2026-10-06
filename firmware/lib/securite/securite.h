@@ -44,6 +44,8 @@ enum CodeDefaut : uint32_t {
     DEF_SSR_COLLE         = 1u << 16,  // température qui monte alors que la commande est à 0
     DEF_CHAUFFE_INEFFICACE = 1u << 17, // posé par machine_etats (MONTÉE)
     DEF_HOMOGENEITE       = 1u << 18,  // posé par machine_etats (limite couvain empêche le palier)
+    DEF_FILM_SURTEMP      = 1u << 19,  // plancher chauffant : T surface film >= 55 °C pendant 10 s
+    DEF_SONDE_FILM        = 1u << 20,  // plancher chauffant actif : sonde du film invalide en cycle
 };
 
 /// Texte court d'UN bit de défaut (journal, console).
@@ -57,6 +59,7 @@ struct ContexteSecurite {
     bool ssr_commande = false;     // commande effective appliquée au cycle précédent
     uint8_t pwm_pct[NB_VENTILOS] = {0, 0, 0};
     uint16_t rpm_nominal[NB_VENTILOS] = {0, 0, 0};  // tr/min à 100 %
+    bool plancher_chauffant = false; // variante D21 active (paramètre) : sonde du film critique
 };
 
 class Securite {
@@ -100,6 +103,7 @@ private:
     bool premier_ = true;
     uint32_t air_haut_ms_ = 0;
     uint32_t couvain_haut_ms_ = 0;
+    uint32_t film_haut_ms_ = 0;
     uint8_t brute_45_n_ = 0;
     uint32_t ventilo_bas_ms_[NB_VENTILOS] = {0, 0, 0};
     uint32_t ventilo_depuis_ms_[NB_VENTILOS] = {0, 0, 0};

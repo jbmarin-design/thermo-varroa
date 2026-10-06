@@ -22,7 +22,8 @@ enum Embase : uint8_t { EMBASE_P1 = 0, EMBASE_P2 = 1, EMBASE_P3 = 2 };
 
 /// Position physique d'une sonde, mémorisée par ID dans la table d'étalonnage.
 /// (Déplacée ici depuis parametres.h : c'est une propriété de la sonde.)
-enum class Position : uint8_t { INCONNUE = 0, P1_HAUT, P1_CENTRE, P1_BAS, P2, P3, AIR, RETOUR };
+/// Valeurs stockées dans la table d'étalonnage (NVS) : n'ajouter qu'EN FIN de liste.
+enum class Position : uint8_t { INCONNUE = 0, P1_HAUT, P1_CENTRE, P1_BAS, P2, P3, AIR, RETOUR, FILM };
 
 /// Vrai si une sonde de cette position a le droit d'être branchée sur cette embase.
 bool position_compatible(Embase e, Position p);
@@ -63,6 +64,9 @@ struct Mesures {
     LectureSonde t_air;       // sonde air soufflé (toit, bande de soufflage) — CRITIQUE
     LectureSonde t_retour;    // sonde air de retour (toit, bande d'aspiration) — diagnostic,
                               // ajoutée en Phase 1 pour le bilan thermique (débit d'air)
+    LectureSonde t_film;      // surface du film chauffant du plancher (variante D21) : bus du toit
+                              // prolongé par J4 ; critique SEULEMENT si `plancher_chauffant` = 1.
+                              // Exclue de t_brute_max (le film travaille normalement à ~50 °C).
     bool t_elem_valide = false;
     float t_elem = 0.0f;      // NTC élément (diagnostic)
     bool sht_valide = false;

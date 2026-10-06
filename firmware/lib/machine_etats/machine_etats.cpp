@@ -38,6 +38,7 @@ void MachineEtats::initialiser(const Parametres& p, bool parametres_ok) {
         parametres_ok_ = true;
     }
     reg_.reinitialiser();
+    film_.reinitialiser();
 }
 
 bool MachineEtats::changer_parametres(const Parametres& p) {
@@ -68,6 +69,11 @@ uint32_t MachineEtats::autotest_statique(const Mesures& m) const {
     if (!m.c4_fermee) c |= AT_C4_OUVERTE;
     if (!parametres_ok_) c |= AT_PARAMETRES;
     if (!rtc_valide_) c |= AT_RTC;
+    if (p_.plancher_chauffant) {
+        // Variante active : la sonde de surface du film devient critique.
+        if (!m.t_film.valide || !m.t_film.etalonnee) c |= AT_SONDE_FILM;
+        if (p_.pwm_plancher_pct == 0) c |= AT_FILM_SANS_SOUFFLANTES;
+    }
     return c;
 }
 
@@ -105,6 +111,27 @@ bool MachineEtats::regler(const Mesures& m, float consigne) {
     return d;
 }
 
+bool MachineEtats::soufflantes_plancher_ok(const Mesures& m) const {
+    // Les tachymètres mesurés à ce pas reflètent le PWM appliqué au pas précédent.
+    static const uint8_t pl[2] = {VENTILO_PLANCHER_A, VENTILO_PLANCHER_B};
+    for (uint8_t v : pl) {
+        if (derniers_pwm_[v] == 0 || m.rpm[v] == 0) return false;
+        if (!Securite::ventilo_ok(m.rpm[v], derniers_pwm_[v], p_.rpm_nominal_plancher)) return false;
+    }
+    return true;
+}
+
+bool MachineEtats::commander_film(const Mesures& m, bool demande) {
+    EntreeFilm f;
+    f.actif = p_.plancher_chauffant != 0;
+    f.demande = demande;
+    f.sonde_valide = m.t_film.valide;
+    // Comme pour l'air : pire de la valeur filtrée et de la valeur brute (retard du filtre médian).
+    f.t_film = (m.t_film.t_brute > m.t_film.t) ? m.t_film.t_brute : m.t_film.t;
+    f.soufflantes_ok = soufflantes_plancher_ok(m);
+    return film_.calculer(f);
+}
+
 void MachineEtats::suivre_resume(const Mesures& m) {
     float t[NB_SONDES_COUVAIN];
     bool v[NB_SONDES_COUVAIN];
@@ -113,6 +140,7 @@ void MachineEtats::suivre_resume(const Mesures& m) {
         if (v[i] && t[i] > resume_.tmax_couvain[i]) resume_.tmax_couvain[i] = t[i];
     }
     if (m.t_air.valide && m.t_air.t > resume_.tmax_air) resume_.tmax_air = m.t_air.t;
+    if (m.t_film.valide && m.t_film.t > resume_.tmax_film) resume_.tmax_film = m.t_film.t;
     if (etat_ == Etat::PALIER && m.couvain_complet) {
         const float ecart = m.t_couvain_max - m.t_couvain_min;
         if (ecart > resume_.ecart_max_palier) resume_.ecart_max_palier = ecart;
@@ -146,6 +174,7 @@ Sorties MachineEtats::pas(const Mesures& m, const Commandes& cmd, Securite& secu
     ctx.chauffe_demandee = reg_.sortie();
     ctx.ssr_commande = derniere_chauffe_;
     for (uint8_t v = 0; v < NB_VENTILOS; ++v) ctx.pwm_pct[v] = derniers_pwm_[v];
+    ctx.plancher_chauffant = p_.plancher_chauffant != 0;
     ctx.rpm_nominal[VENTILO_TOIT] = p_.rpm_nominal_toit;
     ctx.rpm_nominal[VENTILO_PLANCHER_A] = p_.rpm_nominal_plancher;
     ctx.rpm_nominal[VENTILO_PLANCHER_B] = p_.rpm_nominal_plancher;
@@ -315,6 +344,7 @@ Sorties MachineEtats::pas(const Mesures& m, const Commandes& cmd, Securite& secu
             consigne_courante_ = p_.consigne;
             const bool demande = regler(m, p_.consigne);
             s.chauffe = demande && secu.autorise_chauffe();
+            s.film = commander_film(m, demande) && secu.autorise_chauffe();
             break;
         }
         case Etat::REFROIDISSEMENT: {
@@ -324,22 +354,26 @@ Sorties MachineEtats::pas(const Mesures& m, const Commandes& cmd, Securite& secu
             if (!descente_init_) {
                 // Pas d'entrée dans l'état : la rampe est initialisée au pas suivant ; pas de chauffe.
                 reg_.reinitialiser();
+                film_.reinitialiser();
                 break;
             }
             const bool demande = regler(m, consigne_courante_);
             s.chauffe = demande && secu.autorise_chauffe();
+            s.film = commander_film(m, demande) && secu.autorise_chauffe();
             break;
         }
         case Etat::DEFAUT:
             reg_.reinitialiser();
+            film_.reinitialiser();
             if (secu.brassage_requis()) ventilos(s, defauts::PWM_BRASSAGE_PCT, defauts::PWM_BRASSAGE_PCT);
             break;
         default:
             reg_.reinitialiser();
+            film_.reinitialiser();
             break;
     }
     // Dernier mot à la sécurité, dans tous les états.
-    if (!secu.autorise_chauffe()) s.chauffe = false;
+    if (!secu.autorise_chauffe()) { s.chauffe = false; s.film = false; }
     s.ouvrir_relais_serie = secu.ouvrir_relais_serie();
 
     derniere_chauffe_ = s.chauffe;

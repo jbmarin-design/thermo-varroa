@@ -18,7 +18,11 @@
 //   depart | arret | acquit | silence | bavard
 //   test_trip  : le MCU ouvre la chaîne C4 pendant 2 s (contrôle : K1 retombe et RESTE ouvert)
 //   test_gel   : fige la boucle principale (contrôle de l'enable dynamique puis du watchdog)
-// Positions : P1_haut P1_centre P1_bas P2 P3 air retour.
+// Positions : P1_haut P1_centre P1_bas P2 P3 air retour film.
+// Variante plancher chauffant (D21) : `param plancher_chauffant 1` ; le film 24 V (GPIO 14)
+// suit la décision de la machine, coupé si les mesures sont périmées. Pas d'enable dynamique
+// sur le film : boucle figée -> watchdog 5 s -> reset -> GPIO 14 BAS (pull-down) ; bimétal
+// 55 °C + TCO 72 °C + contact K2 (C4) en série restent indépendants du MCU.
 // =============================================================================
 #include <Arduino.h>
 #include <esp_task_wdt.h>
@@ -61,6 +65,7 @@ uint32_t g_defauts_journalises = 0;
 uint32_t g_avert_journalises = 0;
 tv::Appui g_appui_en_attente = tv::Appui::AUCUN;
 bool g_chauffe_machine = false;  // décision de la machine au dernier pas (avant plafond de puissance)
+bool g_film_machine = false;     // décision de la machine pour le film du plancher (D21)
 uint32_t g_test_trip_fin_ms = 0;  // > 0 : ouverture C4 forcée par la console jusqu'à cet instant
 
 char g_ligne[640];
@@ -114,6 +119,8 @@ void journaliser_mesures() {
     c.hors_plage_s = g_machine.hors_plage_cumule_s();
     c.chauffe_cumulee_s = g_secu.chauffe_cumulee_s();
     c.relais_trip = g_sorties.ouvrir_relais_serie;
+    c.film = g_sorties.film;
+    c.raisons_film = g_machine.film().raisons();
     tv::journal_ligne_mesures(g_m, c, g_ligne, sizeof g_ligne);
     ecrire_ligne(g_ligne);
 }
@@ -144,7 +151,8 @@ void cmd_sondes() {
     }
     uint8_t n = 0, trouvees = 0;
     const tv::LectureSonde* toit = hal::sondes_toit(n, trouvees);
-    Serial.printf("Bus toit : trouvees=%u (attendu 2 : air + retour)\n", trouvees);
+    Serial.printf("Bus toit : trouvees=%u (attendu 2 : air + retour ; 3 avec la sonde du film du plancher)\n",
+                  trouvees);
     for (uint8_t s = 0; s < n; ++s) afficher_sonde("toit", toit[s]);
     Serial.printf("SHT45 : valide=%u T=%.2f HR=%.1f | NTC element : valide=%u T=%.1f | C4 fermee=%u\n",
                   g_m.sht_valide ? 1u : 0u, static_cast<double>(g_m.sht_t), static_cast<double>(g_m.sht_hr),
@@ -178,11 +186,12 @@ void cmd_param(char* nom, char* val) {
     tv::Parametres p = g_machine.parametres();
     if (!nom) {
         Serial.printf("consigne=%.2f hyst_bas=%.2f hyst_haut=%.2f palier_min=%lu timeout_montee_min=%lu\n"
-                      "pwm_toit=%u pwm_plancher=%u rpm_toit=%u rpm_plancher=%u puissance_max=%u\n",
+                      "pwm_toit=%u pwm_plancher=%u rpm_toit=%u rpm_plancher=%u puissance_max=%u\n"
+                      "plancher_chauffant=%u\n",
                       static_cast<double>(p.consigne), static_cast<double>(p.hyst_bas),
                       static_cast<double>(p.hyst_haut), static_cast<unsigned long>(p.duree_palier_min),
                       static_cast<unsigned long>(p.timeout_montee_min), p.pwm_toit_pct, p.pwm_plancher_pct,
-                      p.rpm_nominal_toit, p.rpm_nominal_plancher, p.puissance_max_pct);
+                      p.rpm_nominal_toit, p.rpm_nominal_plancher, p.puissance_max_pct, p.plancher_chauffant);
         return;
     }
     if (g_machine.etat() != tv::Etat::ATTENTE) { Serial.println("REFUS : parametres modifiables en ATTENTE uniquement"); return; }
@@ -199,6 +208,7 @@ void cmd_param(char* nom, char* val) {
     else if (!std::strcmp(nom, "rpm_toit")) p.rpm_nominal_toit = static_cast<uint16_t>(l);
     else if (!std::strcmp(nom, "rpm_plancher")) p.rpm_nominal_plancher = static_cast<uint16_t>(l);
     else if (!std::strcmp(nom, "puissance_max")) p.puissance_max_pct = static_cast<uint8_t>(l);
+    else if (!std::strcmp(nom, "plancher_chauffant")) p.plancher_chauffant = static_cast<uint8_t>(l != 0 ? 1 : 0);
     else { Serial.println("parametre inconnu"); return; }
     if (tv::parametres_borner(p)) Serial.println("ATTENTION : valeur ramenee dans les bornes figees");
     g_machine.changer_parametres(p);
@@ -232,15 +242,18 @@ void executer_commande(char* ligne) {
     if (!std::strcmp(mot, "aide")) {
         Serial.println("aide | etat | sondes | etal <ROM> <offset> [pos] | etalref <ROM> <t_ref> | pos <ROM> <pos>\n"
                        "etal_effacer | param [nom val] | rtc AAAA-MM-JJTHH:MM:SS | depart | arret | acquit\n"
-                       "test_trip | test_gel | silence | bavard   (pos : P1_haut P1_centre P1_bas P2 P3 air retour)");
+                       "test_trip | test_gel | silence | bavard   (pos : P1_haut P1_centre P1_bas P2 P3 air retour film)\n"
+                       "param plancher_chauffant 0|1 : variante film chauffant du plancher (D21)");
     } else if (!std::strcmp(mot, "etat")) {
         char d[200];
         tv::defauts_detail(g_secu.defauts(), d, sizeof d);
-        Serial.printf("etat=%s defauts=%s avert=0x%03lX autotest=0x%04lX palier=%lus hors_plage=%lus chauffe=%u\n",
+        Serial.printf("etat=%s defauts=%s avert=0x%03lX autotest=0x%04lX palier=%lus hors_plage=%lus chauffe=%u "
+                      "film=%u raisons_film=0x%02X\n",
                       tv::etat_texte(g_machine.etat()), d, static_cast<unsigned long>(g_machine.avertissements()),
                       static_cast<unsigned long>(g_machine.dernier_autotest()),
                       static_cast<unsigned long>(g_machine.palier_cumule_s()),
-                      static_cast<unsigned long>(g_machine.hors_plage_cumule_s()), g_sorties.chauffe ? 1u : 0u);
+                      static_cast<unsigned long>(g_machine.hors_plage_cumule_s()), g_sorties.chauffe ? 1u : 0u,
+                      g_sorties.film ? 1u : 0u, static_cast<unsigned>(g_machine.film().raisons()));
     } else if (!std::strcmp(mot, "sondes")) {
         cmd_sondes();
     } else if (!std::strcmp(mot, "etal") || !std::strcmp(mot, "etalref") || !std::strcmp(mot, "pos")) {
@@ -337,8 +350,10 @@ void pas_machine(uint32_t maintenant) {
     const tv::Etat avant = g_machine.etat();
     g_sorties = g_machine.pas(g_m, cmd, g_secu, maintenant);
     g_chauffe_machine = g_sorties.chauffe;
+    g_film_machine = g_sorties.film;
     // Coupure immédiate si la machine ne chauffe plus ; sinon appliquer_chauffe() (loop).
     if (!g_chauffe_machine) hal::commande_chauffe(false);
+    if (!g_film_machine) hal::commande_film(false);
     hal::ouvrir_c4(g_sorties.ouvrir_relais_serie || g_test_trip_fin_ms != 0);
     hal::pwm_ventilos(g_sorties.pwm_pct);
 
@@ -463,6 +478,11 @@ void loop() {
                          tv::fenetre_puissance(maintenant, g_machine.parametres().puissance_max_pct);
     hal::commande_chauffe(chauffe);
     g_sorties.chauffe = chauffe;
+    // Film du plancher (D21) : décision de la machine ET données fraîches (pas de plafond de
+    // puissance : film 24 V de faible densité, limité par sa propre sonde à 50 °C).
+    const bool film = g_film_machine && donnees_fraiches;
+    hal::commande_film(film);
+    g_sorties.film = film;
 
     // LED (~1 Hz de clignotement).
     const bool clignote = (maintenant / 500u) % 2u == 0u;

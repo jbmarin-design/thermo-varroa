@@ -61,4 +61,36 @@ bool RegulationTOR::calculer(const EntreeRegulation& e) {
     return sortie_;
 }
 
+// -----------------------------------------------------------------------------
+
+void CommandeFilm::reinitialiser() {
+    lim_ = false;
+    sortie_ = false;
+    raisons_ = FILM_INACTIF;
+}
+
+bool CommandeFilm::calculer(const EntreeFilm& e) {
+    raisons_ = FILM_AUCUNE;
+    if (!e.actif) {
+        lim_ = false;
+        sortie_ = false;
+        raisons_ = FILM_INACTIF;
+        return sortie_;
+    }
+    if (!e.sonde_valide) {
+        // Sans mesure de surface : jamais de film. La limite est réarmée par prudence.
+        lim_ = true;
+        raisons_ |= FILM_DONNEES;
+    } else if (e.t_film > defauts::T_FILM_MAX_REG) {
+        lim_ = true;
+    } else if (e.t_film <= defauts::T_FILM_MAX_REG - defauts::HYST_FILM) {
+        lim_ = false;
+    }
+    if (lim_) raisons_ |= FILM_LIMITE;
+    if (!e.soufflantes_ok) raisons_ |= FILM_SOUFFLANTES;
+    if (!e.demande) raisons_ |= FILM_DEMANDE;
+    sortie_ = raisons_ == FILM_AUCUNE;
+    return sortie_;
+}
+
 }  // namespace tv

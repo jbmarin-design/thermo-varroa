@@ -12,7 +12,11 @@
 
 namespace tv {
 
-constexpr uint16_t VERSION_SCHEMA_PARAMETRES = 2;  // v2 : ajout puissance_max_pct
+constexpr uint16_t VERSION_SCHEMA_PARAMETRES = 3;  // v2 : puissance_max_pct ; v3 : plancher_chauffant (D21)
+/// Version de la table d'étalonnage, DISTINCTE de celle des paramètres depuis la v3 : l'ajout d'un
+/// paramètre n'invalide pas les offsets mesurés au bain (structure inchangée ; la position FILM
+/// est ajoutée en fin d'énumération, les valeurs existantes ne bougent pas).
+constexpr uint16_t VERSION_SCHEMA_ETALONNAGE = 2;
 
 /// Paramètres de traitement. Toute écriture passe par parametres_borner().
 struct Parametres {
@@ -27,6 +31,7 @@ struct Parametres {
     uint16_t rpm_nominal_toit = 0;      // tr/min à 100 % (relevé au banc)
     uint16_t rpm_nominal_plancher = 0;
     uint8_t puissance_max_pct = 0;      // plafond de puissance de l'élément (fenêtre 10 s)
+    uint8_t plancher_chauffant = 0;     // variante D21 : 0 = film du plancher désactivé, 1 = actif
     uint32_t crc = 0;                   // CRC32 de tout ce qui précède
 };
 
@@ -65,7 +70,7 @@ struct EntreeEtalonnage {
 
 struct TableEtalonnage {
     static constexpr uint8_t CAPACITE = 16;
-    uint16_t version = VERSION_SCHEMA_PARAMETRES;
+    uint16_t version = VERSION_SCHEMA_ETALONNAGE;
     uint8_t n = 0;
     EntreeEtalonnage e[CAPACITE];
     uint32_t crc = 0;

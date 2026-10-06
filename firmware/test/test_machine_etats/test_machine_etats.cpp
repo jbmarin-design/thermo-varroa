@@ -483,6 +483,172 @@ void test_resume_cycle_en_defaut() {
     TEST_ASSERT_TRUE(b.machine.resume().defauts & DEF_C4_OUVERTE);
 }
 
+// --- Variante plancher chauffant d'appoint (D21) -----------------------------------------------------
+
+void test_plancher_chauffant_desactive_comportement_inchange() {
+    Banc b;                                         // défaut : plancher_chauffant = 0
+    TEST_ASSERT_EQUAL_UINT8(0, b.machine.parametres().plancher_chauffant);
+    const Mesures m = mesures(34.0f, 38.0f);        // AUCUNE sonde de film
+    b.demarrer(m);
+    TEST_ASSERT_EQUAL(Etat::MONTEE, b.machine.etat());
+    TEST_ASSERT_TRUE(b.s.chauffe);
+    TEST_ASSERT_FALSE(b.s.film);
+    TEST_ASSERT_EQUAL_UINT8(FILM_INACTIF, b.machine.film().raisons());
+    b.tourner(m, 10 * MIN);
+    TEST_ASSERT_EQUAL(Etat::MONTEE, b.machine.etat());
+    TEST_ASSERT_EQUAL_UINT32(DEF_AUCUN, b.secu.defauts());
+    TEST_ASSERT_TRUE(b.s.chauffe);
+    // Une sonde de film branchée ne commande rien tant que la variante est désactivée.
+    b.tourner(mesures_film(34.0f, 38.0f, 30.0f), MIN);
+    TEST_ASSERT_TRUE(b.s.chauffe);
+    TEST_ASSERT_FALSE(b.s.film);
+}
+
+void test_plancher_chauffant_suit_la_demande_du_toit() {
+    Banc b;
+    b.activer_plancher_chauffant();
+    b.demarrer(mesures_film(34.0f, 38.0f, 30.0f));
+    TEST_ASSERT_EQUAL(Etat::MONTEE, b.machine.etat());
+    TEST_ASSERT_TRUE(b.s.chauffe);
+    TEST_ASSERT_TRUE(b.s.film);
+    b.pas(mesures_film(42.6f, 43.0f, 40.0f));       // consigne atteinte (TOR) : les deux coupés
+    TEST_ASSERT_FALSE(b.s.chauffe);
+    TEST_ASSERT_FALSE(b.s.film);
+    TEST_ASSERT_TRUE(b.machine.film().raisons() & FILM_DEMANDE);
+    b.pas(mesures_film(42.0f, 43.0f, 40.0f));       // <= 42,1 : les deux repartent
+    TEST_ASSERT_TRUE(b.s.chauffe);
+    TEST_ASSERT_TRUE(b.s.film);
+    Mesures m = mesures_film(41.0f, 43.0f, 40.0f);  // limite couvain 43,5 °C : coupe aussi le film
+    fixer_couvain(m, 2, 43.6f);
+    b.pas(m);
+    TEST_ASSERT_FALSE(b.s.chauffe);
+    TEST_ASSERT_FALSE(b.s.film);
+    b.pas(mesures_film(40.0f, 44.1f, 40.0f));       // limite air 44,0 °C : coupe aussi le film
+    TEST_ASSERT_FALSE(b.s.chauffe);
+    TEST_ASSERT_FALSE(b.s.film);
+    b.pas(mesures_film(40.0f, 43.4f, 40.0f));
+    TEST_ASSERT_TRUE(b.s.chauffe);
+    TEST_ASSERT_TRUE(b.s.film);
+}
+
+void test_plancher_chauffant_limite_50_sans_couper_le_toit() {
+    Banc b;
+    b.activer_plancher_chauffant();
+    b.demarrer(mesures_film(34.0f, 38.0f, 30.0f));
+    b.pas(mesures_film(36.0f, 40.0f, 50.5f));
+    TEST_ASSERT_TRUE(b.s.chauffe);                  // le toit continue
+    TEST_ASSERT_FALSE(b.s.film);
+    TEST_ASSERT_TRUE(b.machine.film().raisons() & FILM_LIMITE);
+    TEST_ASSERT_EQUAL(Etat::MONTEE, b.machine.etat());  // limite non bloquante
+    b.pas(mesures_film(36.0f, 40.0f, 49.0f));       // hystérésis : reste coupé
+    TEST_ASSERT_FALSE(b.s.film);
+    b.pas(mesures_film(36.0f, 40.0f, 47.9f));
+    TEST_ASSERT_TRUE(b.s.film);
+    // Limite évaluée aussi sur la valeur brute (filtre médian en retard).
+    Mesures m = mesures_film(36.0f, 40.0f, 47.0f);
+    appliquer_lecture(m.t_film, true, 50.4f);
+    TEST_ASSERT_TRUE(m.t_film.t < 50.0f);
+    b.pas(m);
+    TEST_ASSERT_FALSE(b.s.film);
+}
+
+void test_plancher_chauffant_defaut_55_verrouille() {
+    Banc b;
+    b.activer_plancher_chauffant();
+    b.demarrer(mesures_film(34.0f, 38.0f, 30.0f));
+    const Mesures m = mesures_film(36.0f, 40.0f, 55.5f);  // MOSFET collé simulé
+    b.tourner(m, 8000);
+    TEST_ASSERT_EQUAL(Etat::MONTEE, b.machine.etat());
+    TEST_ASSERT_FALSE(b.s.film);                    // déjà coupé par la limite 50 °C
+    b.tourner(m, 4000);
+    TEST_ASSERT_EQUAL(Etat::DEFAUT, b.machine.etat());
+    TEST_ASSERT_TRUE(b.secu.defauts() & DEF_FILM_SURTEMP);
+    TEST_ASSERT_FALSE(b.s.chauffe);
+    TEST_ASSERT_FALSE(b.s.film);
+    TEST_ASSERT_TRUE(b.s.ouvrir_relais_serie);      // C4 ouverte -> K2 coupe le 24 V du film
+    TEST_ASSERT_EQUAL_UINT8(defauts::PWM_BRASSAGE_PCT, b.s.pwm_pct[VENTILO_PLANCHER_A]);
+}
+
+void test_plancher_chauffant_interdit_si_soufflantes_plancher_arretees() {
+    Banc b;
+    b.activer_plancher_chauffant();
+    b.demarrer(mesures_film(34.0f, 38.0f, 30.0f));
+    TEST_ASSERT_TRUE(b.s.film);
+    Mesures m = mesures_film(34.0f, 38.0f, 30.0f);
+    m.rpm[VENTILO_PLANCHER_B] = 0;                  // soufflante arrière bloquée
+    b.pas(m);
+    TEST_ASSERT_FALSE(b.s.film);                    // coupé dès le pas suivant ...
+    TEST_ASSERT_TRUE(b.s.chauffe);                  // ... avant le DÉFAUT ventilateur (10 s)
+    TEST_ASSERT_TRUE(b.machine.film().raisons() & FILM_SOUFFLANTES);
+    m.rpm[VENTILO_PLANCHER_B] = 1500;               // lente : < 50 % de 4800
+    b.pas(m);
+    TEST_ASSERT_FALSE(b.s.film);
+    b.tourner(m, 12000);
+    TEST_ASSERT_EQUAL(Etat::DEFAUT, b.machine.etat());
+    TEST_ASSERT_TRUE(b.secu.defauts() & DEF_VENTILO_PLANCHER_B);
+    TEST_ASSERT_FALSE(b.s.film);
+    // Variante active avec soufflantes de plancher désactivées : départ refusé.
+    Banc b2;
+    Parametres p = parametres_defaut();
+    p.plancher_chauffant = 1;
+    p.pwm_plancher_pct = 0;
+    TEST_ASSERT_TRUE(b2.machine.changer_parametres(p));
+    Mesures m2 = mesures_film(34.0f, 38.0f, 30.0f);
+    m2.rpm[VENTILO_PLANCHER_A] = m2.rpm[VENTILO_PLANCHER_B] = 0;
+    b2.depart(m2);
+    TEST_ASSERT_EQUAL(Etat::DEFAUT, b2.machine.etat());
+    TEST_ASSERT_TRUE(b2.machine.dernier_autotest() & AT_FILM_SANS_SOUFFLANTES);
+    TEST_ASSERT_FALSE(b2.s.film);
+}
+
+void test_plancher_chauffant_sonde_film_exigee_si_active() {
+    // Départ refusé sans sonde de film (variante active).
+    Banc b;
+    b.activer_plancher_chauffant();
+    b.depart(mesures(34.0f, 38.0f));
+    TEST_ASSERT_EQUAL(Etat::DEFAUT, b.machine.etat());
+    TEST_ASSERT_TRUE(b.machine.dernier_autotest() & AT_SONDE_FILM);
+    // Sonde perdue en cycle : DÉFAUT `sonde_film`, tout est coupé.
+    Banc b2;
+    b2.activer_plancher_chauffant();
+    b2.demarrer(mesures_film(34.0f, 38.0f, 30.0f));
+    TEST_ASSERT_EQUAL(Etat::MONTEE, b2.machine.etat());
+    b2.pas(mesures(34.0f, 38.0f));
+    TEST_ASSERT_EQUAL(Etat::DEFAUT, b2.machine.etat());
+    TEST_ASSERT_TRUE(b2.secu.defauts() & DEF_SONDE_FILM);
+    TEST_ASSERT_FALSE(b2.s.chauffe);
+    TEST_ASSERT_FALSE(b2.s.film);
+}
+
+void test_plancher_chauffant_freine_la_redescente() {
+    Banc b;
+    b.activer_plancher_chauffant();
+    b.demarrer(mesures_film(34.0f, 38.0f, 30.0f));
+    const Mesures pal = mesures_film(42.1f, 43.0f, 45.0f);
+    b.tourner(pal, 5 * MIN + PAS_MS);
+    b.tourner(pal, 120 * MIN + PAS_MS);
+    TEST_ASSERT_EQUAL(Etat::REFROIDISSEMENT, b.machine.etat());
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 45.0f, b.machine.resume().tmax_film);  // T surface max (résumé)
+    b.tourner(mesures_film(41.0f, 41.0f, 40.0f), 20 * MIN);
+    b.pas(mesures_film(39.0f, 39.0f, 40.0f));       // chute plus rapide que la rampe : freinage
+    TEST_ASSERT_TRUE(b.s.chauffe);
+    TEST_ASSERT_TRUE(b.s.film);
+    b.pas(mesures_film(40.6f, 40.6f, 40.0f));       // au-dessus de la rampe : rien
+    TEST_ASSERT_FALSE(b.s.chauffe);
+    TEST_ASSERT_FALSE(b.s.film);
+}
+
+void test_plancher_chauffant_modifiable_seulement_en_attente() {
+    Banc b;
+    b.demarrer(mesures(34.0f, 38.0f));
+    Parametres p = b.machine.parametres();
+    p.plancher_chauffant = 1;
+    TEST_ASSERT_FALSE(b.machine.changer_parametres(p));
+    TEST_ASSERT_EQUAL_UINT8(0, b.machine.parametres().plancher_chauffant);
+    b.tourner(mesures_film(34.0f, 38.0f, 30.0f), MIN);
+    TEST_ASSERT_FALSE(b.s.film);
+}
+
 int main(int, char**) {
     UNITY_BEGIN();
     RUN_TEST(test_demarrage_en_attente_sans_chauffe);
@@ -521,5 +687,13 @@ int main(int, char**) {
     RUN_TEST(test_acquittement_refuse_si_cause_presente);
     RUN_TEST(test_changer_parametres_seulement_en_attente);
     RUN_TEST(test_resume_cycle_en_defaut);
+    RUN_TEST(test_plancher_chauffant_desactive_comportement_inchange);
+    RUN_TEST(test_plancher_chauffant_suit_la_demande_du_toit);
+    RUN_TEST(test_plancher_chauffant_limite_50_sans_couper_le_toit);
+    RUN_TEST(test_plancher_chauffant_defaut_55_verrouille);
+    RUN_TEST(test_plancher_chauffant_interdit_si_soufflantes_plancher_arretees);
+    RUN_TEST(test_plancher_chauffant_sonde_film_exigee_si_active);
+    RUN_TEST(test_plancher_chauffant_freine_la_redescente);
+    RUN_TEST(test_plancher_chauffant_modifiable_seulement_en_attente);
     return UNITY_END();
 }

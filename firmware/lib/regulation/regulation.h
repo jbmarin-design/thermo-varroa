@@ -11,6 +11,11 @@
 // - Aucune donnée valide -> chauffe 0.
 // Pas de PID en Phase 1 (prévu en Phase 2 : cascade cœur / air soufflé).
 // La commande effective du SSR = sortie() ET autorisation de `securite`.
+//
+// Variante « plancher chauffant d'appoint » (D21) : CommandeFilm. Le film 24 V du plancher
+// suit la MÊME demande que le toit (sortie de RegulationTOR, donc limites couvain/air
+// comprises), avec sa limite propre sur la sonde de surface du film (> 50 °C -> coupé
+// jusqu'à <= 48 °C), et il est INTERDIT si les soufflantes de plancher ne tournent pas.
 // Code portable (testé en native).
 // =============================================================================
 #pragma once
@@ -61,6 +66,43 @@ private:
     bool lim_air_ = false;
     bool sortie_ = false;
     uint8_t raisons_ = COUPURE_DONNEES;
+};
+
+// -----------------------------------------------------------------------------
+// Variante plancher chauffant (D21)
+// -----------------------------------------------------------------------------
+
+struct EntreeFilm {
+    bool actif = false;           // paramètre plancher_chauffant = 1
+    bool demande = false;         // sortie de RegulationTOR (TOR + limites couvain/air)
+    bool sonde_valide = false;    // sonde de surface du film valide
+    float t_film = 0;             // pire de la valeur filtrée et de la valeur brute (°C)
+    bool soufflantes_ok = false;  // les 2 soufflantes de plancher commandées (> 0 %) ET tachymètres OK
+};
+
+enum RaisonFilm : uint8_t {
+    FILM_AUCUNE      = 0,
+    FILM_INACTIF     = 1 << 0,  // variante désactivée (plancher_chauffant = 0)
+    FILM_DEMANDE     = 1 << 1,  // pas de demande de chauffe (consigne atteinte ou limite couvain/air)
+    FILM_LIMITE      = 1 << 2,  // T surface film > 50 °C (hystérésis jusqu'à 48 °C)
+    FILM_SOUFFLANTES = 1 << 3,  // soufflantes de plancher arrêtées / lentes : point chaud
+    FILM_DONNEES     = 1 << 4,  // sonde du film invalide
+};
+
+class CommandeFilm {
+public:
+    void reinitialiser();
+    /// Calcule la commande du film (avant autorisation de `securite`). Appelée à chaque pas.
+    bool calculer(const EntreeFilm& e);
+    bool sortie() const { return sortie_; }
+    bool limite() const { return lim_; }
+    /// Combinaison de RaisonFilm expliquant pourquoi le film est coupé (0 si commandé).
+    uint8_t raisons() const { return raisons_; }
+
+private:
+    bool lim_ = false;
+    bool sortie_ = false;
+    uint8_t raisons_ = FILM_INACTIF;
 };
 
 }  // namespace tv

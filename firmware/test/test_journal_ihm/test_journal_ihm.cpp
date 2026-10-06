@@ -125,6 +125,36 @@ void test_led_defaut_rouge() {
     TEST_ASSERT_TRUE(c.r > 0 && c.g == 0 && c.b == 0);
 }
 
+void test_colonnes_plancher_chauffant() {
+    char entete[640], ligne[640];
+    const int ne = journal_entete_colonnes(entete, sizeof entete);
+    TEST_ASSERT_TRUE(ne < static_cast<int>(sizeof entete) - 1);
+    const char* fin = ";t_film;film;raisons_film";
+    TEST_ASSERT_EQUAL_STRING(fin, entete + ne - static_cast<int>(std::strlen(fin)));
+    Mesures m = mesures_film(41.2f, 43.1f, 47.25f);
+    ContexteLigne c;
+    c.film = true;
+    c.raisons_film = 0;
+    const int nl = journal_ligne_mesures(m, c, ligne, sizeof ligne);
+    TEST_ASSERT_TRUE(nl < static_cast<int>(sizeof ligne) - 1);
+    TEST_ASSERT_EQUAL_INT(compter(entete, ';'), compter(ligne, ';'));
+    TEST_ASSERT_EQUAL_STRING(";47.25;1;0", ligne + nl - 10);
+    // Variante désactivée, pas de sonde : champ vide, film 0, raison 1 (FILM_INACTIF).
+    m = mesures(41.2f, 43.1f);
+    c.film = false;
+    c.raisons_film = FILM_INACTIF;
+    const int n2 = journal_ligne_mesures(m, c, ligne, sizeof ligne);
+    TEST_ASSERT_EQUAL_STRING(";;0;1", ligne + n2 - 5);
+    // Métadonnées : paramètre et limites du film tracés en tête de fichier.
+    char l[256];
+    const Parametres p = parametres_defaut();
+    journal_metadonnees(3, p, "x", l, sizeof l);
+    TEST_ASSERT_NOT_NULL(std::strstr(l, "plancher_chauffant=0"));
+    TEST_ASSERT_TRUE(journal_metadonnees(5, p, "x", l, sizeof l) > 0);
+    TEST_ASSERT_NOT_NULL(std::strstr(l, "max_reg=50.0"));
+    TEST_ASSERT_NOT_NULL(std::strstr(l, "defaut=55.0/10s"));
+}
+
 int main(int, char**) {
     UNITY_BEGIN();
     RUN_TEST(test_entete_et_ligne_meme_nombre_de_colonnes);
@@ -138,5 +168,6 @@ int main(int, char**) {
     RUN_TEST(test_bouton_appui_long_sans_court);
     RUN_TEST(test_commandes_selon_etat);
     RUN_TEST(test_led_defaut_rouge);
+    RUN_TEST(test_colonnes_plancher_chauffant);
     return UNITY_END();
 }

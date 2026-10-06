@@ -51,9 +51,14 @@ struct ContexteLigne {
     uint32_t hors_plage_s = 0;
     uint32_t chauffe_cumulee_s = 0;
     bool relais_trip = false;       // le MCU demande l'ouverture de C4
+    bool film = false;              // commande du film du plancher appliquée (variante D21)
+    uint8_t raisons_film = 0;       // RaisonFilm : pourquoi le film est coupé (1 = variante désactivée)
 };
 
 /// Ligne de mesures (sans retour à la ligne). Les valeurs invalides sont laissées VIDES.
+/// Colonnes de la variante plancher chauffant (D21), ajoutées EN FIN de ligne pour ne pas
+/// décaler les colonnes existantes : t_film (°C, vide si sonde absente), film (0/1),
+/// raisons_film (bits RaisonFilm, 1 = variante désactivée).
 /// Retourne la longueur écrite (tronquée à n-1 au besoin).
 int journal_ligne_mesures(const Mesures& m, const ContexteLigne& c, char* buf, size_t n);
 

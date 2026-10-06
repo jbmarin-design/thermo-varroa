@@ -41,6 +41,7 @@ uint32_t crc_parametres(const Parametres& p) {
     c = crc_champ(c, p.rpm_nominal_toit);
     c = crc_champ(c, p.rpm_nominal_plancher);
     c = crc_champ(c, p.puissance_max_pct);
+    c = crc_champ(c, p.plancher_chauffant);
     return c;
 }
 
@@ -81,6 +82,7 @@ Parametres parametres_defaut() {
     p.rpm_nominal_toit = defauts::RPM_NOMINAL_TOIT;
     p.rpm_nominal_plancher = defauts::RPM_NOMINAL_PLANCHER;
     p.puissance_max_pct = defauts::PUISSANCE_MAX_PCT;
+    p.plancher_chauffant = defauts::PLANCHER_CHAUFFANT_DEFAUT;
     parametres_sceller(p);
     return p;
 }
@@ -106,6 +108,8 @@ bool parametres_borner(Parametres& p) {
     m |= borner<uint16_t>(p.rpm_nominal_toit, 500, 20000);
     m |= borner<uint16_t>(p.rpm_nominal_plancher, 500, 20000);
     m |= borner<uint8_t>(p.puissance_max_pct, PUISSANCE_BORNE_MIN_PCT, PUISSANCE_BORNE_MAX_PCT);
+    // Variante plancher chauffant : booléen strict (toute autre valeur = 1, signalée).
+    if (p.plancher_chauffant > 1) { p.plancher_chauffant = 1; m = true; }
     return m;
 }
 
@@ -132,6 +136,7 @@ const char* position_texte(Position p) {
         case Position::P3:        return "P3";
         case Position::AIR:       return "air";
         case Position::RETOUR:    return "retour";
+        case Position::FILM:      return "film";
         default:                  return "inconnue";
     }
 }
@@ -140,7 +145,8 @@ bool position_depuis_texte(const char* t, Position& p) {
     struct { const char* nom; Position pos; } table[] = {
         {"haut", Position::P1_HAUT}, {"centre", Position::P1_CENTRE}, {"bas", Position::P1_BAS},
         {"P1_haut", Position::P1_HAUT}, {"P1_centre", Position::P1_CENTRE}, {"P1_bas", Position::P1_BAS},
-        {"P2", Position::P2}, {"P3", Position::P3}, {"air", Position::AIR}, {"retour", Position::RETOUR}, {"inconnue", Position::INCONNUE},
+        {"P2", Position::P2}, {"P3", Position::P3}, {"air", Position::AIR}, {"retour", Position::RETOUR}, {"film", Position::FILM},
+        {"inconnue", Position::INCONNUE},
     };
     for (const auto& x : table) {
         if (std::strcmp(t, x.nom) == 0) { p = x.pos; return true; }
@@ -177,12 +183,12 @@ bool TableEtalonnage::definir_position(const uint8_t rom[8], Position pos) {
 }
 
 void TableEtalonnage::sceller() {
-    version = VERSION_SCHEMA_PARAMETRES;
+    version = VERSION_SCHEMA_ETALONNAGE;
     crc = crc_table(*this);
 }
 
 bool TableEtalonnage::valide() const {
-    if (version != VERSION_SCHEMA_PARAMETRES || n > CAPACITE) return false;
+    if (version != VERSION_SCHEMA_ETALONNAGE || n > CAPACITE) return false;
     return crc == crc_table(*this);
 }
 

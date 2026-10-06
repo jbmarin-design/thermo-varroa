@@ -78,6 +78,19 @@ inline void fixer_air(tv::Mesures& m, float t) {
     tv::consolider(m);
 }
 
+/// Variante plancher chauffant (D21) : sonde de surface du film valide et étalonnée.
+inline void fixer_film(tv::Mesures& m, float t) {
+    sonde(m.t_film, 52, t, tv::Position::FILM);
+    tv::consolider(m);
+}
+
+/// Mesures conformes + sonde du film à t_film.
+inline tv::Mesures mesures_film(float t_couvain, float t_air, float t_film) {
+    tv::Mesures m = mesures(t_couvain, t_air);
+    fixer_film(m, t_film);
+    return m;
+}
+
 /// Banc complet : machine + sécurité + horloge simulée.
 struct Banc {
     tv::MachineEtats machine;
@@ -111,6 +124,13 @@ struct Banc {
     void demarrer(const tv::Mesures& m) {
         depart(m);
         tourner(m, defauts::DUREE_TEST_VENTILO_MS + PAS_MS);
+    }
+
+    /// Active la variante plancher chauffant (en ATTENTE).
+    void activer_plancher_chauffant() {
+        tv::Parametres p = machine.parametres();
+        p.plancher_chauffant = 1;
+        machine.changer_parametres(p);
     }
 
     void acquitter(const tv::Mesures& m) {

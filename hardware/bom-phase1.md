@@ -1,6 +1,6 @@
 # Nomenclature — Phase 1 (prototype mono-ruche, banc à vide)
 
-> Référence : `docs/architecture.md` (révision 2, décisions D1–D13), `firmware/include/brochage.h`.
+> Référence : `docs/architecture.md` (révision 2, décisions D1–D21), `firmware/include/brochage.h`.
 > Toutes les **références** sont des **types** à titre d'exemple (équivalents acceptés s'ils respectent les caractéristiques) et tous les **prix** sont **indicatifs, TTC, octobre 2026, non vérifiés : [H]**. Ils servent à estimer un budget, pas à commander.
 > Repères (K1, Q3, U2…) : ceux de `hardware/cablage-phase1.md`.
 
@@ -17,6 +17,8 @@
 | 7. Mécanique du toit et du plancher | ≈ 85 € |
 | 8. Étalonnage et essais | ≈ 330 € |
 | **Total (hors imprimante 3D, hors outillage courant)** | **≈ 950 €** |
+| 10. Variante **plancher chauffant d'appoint** (D21, option pour l'essai E14, rechanges compris) | ≈ 245 € |
+| **Total avec la variante** | **≈ 1 195 €** |
 
 Le poste 8 (bain thermostaté, thermomètre de référence, masse thermique) est un **investissement d'atelier** réutilisé pour toutes les phases.
 
@@ -38,7 +40,7 @@ Le poste 8 (bain thermostaté, thermomètre de référence, masse thermique) est
 | — | Passifs | résistances 1 % 0,25 W (100 Ω ×6, 1 kΩ ×8, 2,2 kΩ ×8, 4,7 kΩ ×6, 10 kΩ ×12, 47 kΩ ×1, 100 kΩ ×6, 1 MΩ ×2), condensateurs X7R (10 nF ×6, 100 nF ×15, 1 µF ×2, 4,7 µF ×2, 10 µF ×4) | lot | 8 € |
 | — | Diodes | 1N4148 ×6 (pompe de charge, roue libre), 1N5819 ×1 (anti-inversion 12 V) | lot | 1 € |
 | Q5 / Q4 | Commutation 12 V ventilateurs | NPN BC847/MMBT3904 + P-MOSFET **AO3401** (ou IRF9540N en traversant) | 1 + 1 | 1 € |
-| Q6–Q8 | Étages PWM ventilateurs | NPN MMBT3904 collecteur ouvert (1 par ventilateur) | 3 | 0,3 € |
+| Q6–Q7 | Étages PWM ventilateurs | NPN MMBT3904 collecteur ouvert : Q6 toit, Q7 **commun M2 + M3** (D21 : Q8 supprimé, GPIO 14 réaffecté au film) | 2 | 0,3 € |
 | D10–D17 | Protections des lignes sondes | réseaux TVS basse capacité **ESD (type PESD3V3 ou TPD4E05)** sur les 4 bus 1-Wire et l'I²C sortant | 4 | 1 € |
 | — | Boîtier TBTS | boîtier ABS/PC **IP65** env. 150 × 80 × 45 mm, couvercle vissé (ESP32, C4, RTC, µSD) | 1 | 10 € |
 | — | **Boîtier 230 V** (séparé) | boîtier PC **IP65** env. 160 × 110 × 60 mm, couvercle vissé (F1, K1, SSR1, PS1, borniers) — **aucune TBTS dans ce boîtier** sauf les fils 12 V de PS1, de la bobine K1 et de la commande SSR, en câble à double isolation | 1 | 14 € |
@@ -57,7 +59,7 @@ Le poste 8 (bain thermostaté, thermomètre de référence, masse thermique) est
 | S2 | Bouton « TEST SÉCURITÉ » | poussoir IP67 **inverseur** (1 RT), capuchon jaune | 1 | 8 € |
 | S3 | Bouton « RÉARMEMENT C4 » | poussoir IP67 NO, capuchon bleu, **protégé contre l'appui accidentel** (collerette) | 1 | 8 € |
 | K1 | **Relais de sécurité série** | bobine **12 V DC**, **2 contacts NO/RT 8 A 250 V AC**, type Finder **40.52.9.012** + socle 95.05 + étrier | 1 | 12 € |
-| K2 | Relais d'auto-maintien (TBTS) | bobine 12 V DC, 1 RT 6 A, type Finder **34.51.7.012** (relais fin) | 1 | 6 € |
+| K2 | Relais d'auto-maintien (TBTS) | bobine 12 V DC, 1 RT 6 A, type Finder **34.51.7.012** (relais fin). **Variante D21 : 2 RT 8 A**, type Finder **40.52.9.012** + socle 95.05 (second contact en série dans le 24 V du film, pouvoir de coupure DC1 ≥ 5 A sous 30 V **[H]** à vérifier sur la fiche) | 1 | 6 € (12 € en 2 RT) |
 | Q1 / Q2 / Q3 | Pilotage K1/K2 et SSR | N-MOSFET **BS170** (Q1, bobines K1+K2, 500 mA) ; NPN BC547 (Q2 : ouverture par le MCU) ; NPN BC547 (Q3 : sortie de la pompe de charge vers le SSR) | 1+1+1 | 0,5 € |
 | U3 | Opto retour d'état C4 | **PC817** (LED en parallèle sur la bobine K1 via 2,2 kΩ) | 1 | 0,3 € |
 | F2 | **Bimétal C5 à réarmement manuel** | thermostat disque KSD301 **à réarmement manuel**, contact NF 10 A 250 V. Seuil définitif fixé au protocole E6 (T élément en régime normal + 10 °C) : acheter **un jeu 70 / 80 / 90 °C [H]** | 3 | 3 € |
@@ -164,3 +166,30 @@ Aucune imprimante n'est disponible (architecture §7). Elle n'est **pas indispen
 | Rien d'imprimé | dans la gaine, à moins de **30 mm de l'élément** | Tôle aluminium, feutre céramique, silicone uniquement (C0 : aucun plastique imprimé au contact du point chaud). |
 
 Remplissage ≥ 40 %, 4 périmètres, inserts laiton à chaud pour les vis. Les pièces au contact des abeilles (Phase 2+) : surfaces lisses, sans cavités (propolis), nettoyables.
+
+---
+
+## 10. Variante plancher chauffant d'appoint (D21) — option
+
+> Nécessaire seulement pour l'essai comparatif E14 (`param plancher_chauffant 1`). Repères : `cablage-phase1.md` §1 et §3.7, `plancher-phase1.md` §7. **TBTS 24 V uniquement dans le plancher.**
+
+| Repère | Désignation | Caractéristiques / référence type | Qté | Prix unit. [H] |
+|---|---|---|---|---|
+| Film A, B | **Films chauffants 24 V DC** | **polyimide** (Kapton) adhésif, ≈ **400 × 145 mm**, **30–40 W chacun** (≈ 14–19 Ω), tenue ≥ 150 °C, sorties câble silicone ; *option* : un film unique ≈ 400 × 300 mm **sur mesure** avec 2 réserves 50 × 50 mm pour les soufflantes (60–90 €) ; *à défaut* : tapis silicone 1,5 mm (vérifier la hauteur, `plancher-phase1.md` §7.2) | 2 (+1) | 25 € |
+| PS2 | **Alimentation 24 V dédiée** | module encapsulé **230 V → 24 V ≈ 90 W (3,75 A)**, classe II, type Mean Well **IRM-90-24** ; *à défaut* bloc rail DIN 24 V 100 W (type Mean Well HDR-100-24) dans le boîtier 230 V | 1 | 30 € |
+| F4 | Fusible d'entrée PS2 | porte-fusible 5 × 20 + fusible **1,6 A temporisé**, raccordé **en amont de F1, hors K1** | 1 + 3 | 4 € |
+| F5 | Fusible de sortie 24 V | porte-fusible 5 × 20 + fusible **5 A rapide** | 1 + 3 | 4 € |
+| Q9 | **N-MOSFET logique côté bas** | 30 V, Vgs(th) ≤ 2,5 V, Rds(on) ≤ 20 mΩ à 3,3 V **[H]**, TO-220, type **IRLB8721PbF** (à défaut : MOSFET spécifié à Vgs = 2,5 V) ; + 100 Ω série, 100 kΩ grille-source | 1 (+1) | 1,5 € |
+| D20, D21 | Protections 24 V | diode Schottky **SS34** (roue libre sur le film) ; TVS **SMBJ28A** sur le rail 24 V | 1 + 1 | 1 € |
+| K2 | Relais 2 RT (remplace le relais 1 RT du §2) | Finder **40.52.9.012** + socle — surcoût | 1 | +6 € |
+| BM_A, BM_B | **Bimétaux NF 55 °C** | thermostat plat **KSD9700** (≈ 5 mm d'épaisseur), contact **NF**, 5 A, seuil **55 °C ±5 K [H]** ; acheter aussi 50 °C et 60 °C pour le réglage en E14 | 2 (+4) | 2 € |
+| TCO_A, TCO_B | **Fusibles thermiques 72 °C** | TCO axial non réarmable **Tf ≈ 72 °C [H]**, ≥ 5 A, type Aupo A3-F 72 °C ; **serti**, jamais soudé | 2 (+4) | 1 € |
+| T_film | **Sonde de surface du film** | DS18B20 **TO-92** authentique (distributeur agréé), couchée sur le film avec pâte thermique + ruban alu ; étalonnée au bain avec les autres (position `film`) | 1 (+1) | 6 € |
+| J5 | **Embase M12 code T 4 broches** femelle (24 V DC) | IP67, 12 A / 63 V DC par contact, montage façade (sur le toit) | 1 | 20 € |
+| — | Câble M12 code T mâle surmoulé | 4 × 0,75 mm² minimum (1,5 mm² si disponible), PUR, **1,0 m** (côté plancher) | 1 | 25 € |
+| — | Capuchon M12-T | obturation de J5 quand le plancher n'a pas de film | 1 | 3 € |
+| — | Presse-étoupe M12 supplémentaire | passage du câble J5 dans la plaque du plancher | 1 | 2 € |
+| — | Plaque d'obturation **polycarbonate 2 mm** | support du film (le PVC expansé ne tient que ≈ 60 °C [H]) | 1 plaque 500 × 1000 | 15 € |
+| — | Fixation thermique | pâte thermique silicone, ruban aluminium adhésif, ruban polyimide (Kapton) 25 mm | lot | 10 € |
+| — | Câble silicone | 0,75 mm² rouge/noir (liaisons films ↔ bimétaux ↔ TCO ↔ plaquette de jonction) | 2 × 2 m | 2 €/m |
+| — | Boîtier 230 V agrandi | ≈ 200 × 120 × 75 mm IP65 pour loger PS2 en plus de PS1 **[H]** (cote IRM-90 à vérifier) — surcoût | 1 | +8 € |
