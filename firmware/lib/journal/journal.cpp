@@ -107,7 +107,7 @@ void defauts_detail(uint32_t defauts, char* buf, size_t n) {
 }
 
 int journal_resume(const Horodatage& h, uint32_t t_ms, const ResumeCycle& r, char* buf, size_t n) {
-    char detail[256];
+    char detail[384];
     Tampon d(detail, sizeof detail);
     d.ajouter("montee_s=%lu palier_s=%lu hors_plage_s=%lu cycle_s=%lu complet=%u tmax_air=%.2f ecart_max=%.2f",
               static_cast<unsigned long>(r.duree_montee_s), static_cast<unsigned long>(r.palier_cumule_s),
@@ -116,6 +116,8 @@ int journal_resume(const Horodatage& h, uint32_t t_ms, const ResumeCycle& r, cha
     for (uint8_t i = 0; i < NB_SONDES_COUVAIN; ++i) {
         d.ajouter(" tmax_%s=%.2f", NOMS_COUVAIN[i], static_cast<double>(r.tmax_couvain[i]));
     }
+    d.ajouter(" t_init=%.2f hr_init=%.1f t_retour=%.2f", static_cast<double>(r.t_couvain_init),
+              static_cast<double>(r.hr_init), static_cast<double>(r.t_retour_cible));
     d.ajouter(" defauts=0x%05lX avert=0x%03lX", static_cast<unsigned long>(r.defauts),
               static_cast<unsigned long>(r.avertissements));
     return journal_ligne_evenement(h, t_ms, r.defauts ? Etat::DEFAUT : Etat::FIN, "RESUME", detail, buf, n);

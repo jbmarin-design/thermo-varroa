@@ -71,7 +71,7 @@ Un fichier par cycle sur la µSD (`/tv_AAAAMMJJ_HHMMSS.csv`), recopié sur la s�
 
 | Point | État |
 |---|---|
-| Tests unitaires de `lib/` (80 tests, avec AddressSanitizer et UBSan) | **vérifié**, mais avec g++ 13 + Unity compilés **manuellement**, pas via `pio test` : PlatformIO n'a pas pu être installé dans l'environnement de développement (accès à pypi.org et au registre PlatformIO refusés par le proxy) |
+| Tests unitaires de `lib/` (83 tests, avec AddressSanitizer et UBSan) | **vérifié**, mais avec g++ 13 + Unity compilés **manuellement**, pas via `pio test` : PlatformIO n'a pas pu être installé dans l'environnement de développement (accès à pypi.org et au registre PlatformIO refusés par le proxy) |
 | `pio test -e native` | **non exécuté** (même raison) — à lancer en premier sur le PC de l'atelier |
 | `pio run -e esp32` (compilation ESP32) | **non vérifié** (toolchain non installable). `src/noeud/*.cpp` a seulement passé une **vérification syntaxique** avec des en-têtes Arduino simulés (cœur Arduino-ESP32 2.x). Points à surveiller à la première compilation : signatures `ledcAttach/ledcWrite`, `esp_task_wdt_*` et `rgbLedWrite` si la plateforme installe le cœur 3.x |
 | Fonctionnement sur carte réelle (1-Wire, SHT45, DS3231, µSD, PWM 25 kHz, tachymètres, enable dynamique) | **non vérifié** — protocole `tests/protocole-phase1.md` E2 à E4 |

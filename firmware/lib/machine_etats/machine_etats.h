@@ -3,7 +3,8 @@
 //
 //   ATTENTE --départ + auto-test statique OK--> AUTOTEST (ventilateurs, ~8 s)
 //   AUTOTEST --tachymètres OK--> MONTEE --Tmin >= 42,0 °C pendant 5 min--> PALIER
-//   PALIER --temps cumulé >= durée--> REFROIDISSEMENT --Tmax <= 37 °C ou timeout--> FIN
+//   PALIER --temps cumulé >= durée--> REFROIDISSEMENT (redescente pilotée en rampe vers la
+//   température de couvain du départ) --cible atteinte ou timeout--> FIN
 //   tout défaut (securite ou détection de cycle) -> DEFAUT (verrouillé, acquittement local)
 //   arrêt opérateur (appui long) en MONTEE/PALIER -> REFROIDISSEMENT ; en AUTOTEST -> ATTENTE
 //   FIN --acquittement--> ATTENTE ; DEFAUT --acquittement ET cause disparue--> ATTENTE
@@ -90,6 +91,9 @@ struct ResumeCycle {
     float tmax_couvain[NB_SONDES_COUVAIN] = {0, 0, 0, 0, 0};
     float tmax_air = 0;
     float ecart_max_palier = 0;   // max(Tmax - Tmin) observé en PALIER
+    float t_couvain_init = 0;     // moyenne (Tmin+Tmax)/2 au départ du cycle
+    float hr_init = -1;           // HR sous le toit au départ (-1 : SHT45 indisponible)
+    float t_retour_cible = 0;     // cible de la redescente pilotée
     uint32_t defauts = 0;
     uint32_t avertissements = 0;
     bool palier_complet = false;
@@ -127,10 +131,13 @@ public:
     /// Auto-test statique (sans ventilateurs) — exposé pour la console et les tests.
     uint32_t autotest_statique(const Mesures& m) const;
 
+    /// Consigne de la redescente pilotée (valide en REFROIDISSEMENT, sinon consigne de palier).
+    float consigne_courante() const { return consigne_courante_; }
+
 private:
     void aller(Etat e, uint32_t maintenant_ms);
     void ventilos(Sorties& s, uint8_t pct_toit, uint8_t pct_plancher) const;
-    bool regler(const Mesures& m);
+    bool regler(const Mesures& m, float consigne);
     void suivre_resume(const Mesures& m);
     void finaliser_resume(uint32_t maintenant_ms, uint32_t defauts);
 
@@ -157,6 +164,10 @@ private:
     // Mémoire du pas précédent (contexte de `securite`).
     bool derniere_chauffe_ = false;
     uint8_t derniers_pwm_[NB_VENTILOS] = {0, 0, 0};
+    // Redescente pilotée.
+    bool descente_init_ = false;
+    float descente_debut_ = 0;        // consigne au début de la rampe
+    float consigne_courante_ = 0;
     bool cycle_en_cours_ = false;     // un cycle a démarré et n'a pas encore produit de résumé
     bool resume_pret_ = false;
     ResumeCycle resume_;

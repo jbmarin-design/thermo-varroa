@@ -277,6 +277,20 @@ void test_ssr_colle_en_refroidissement_couvain() {
     TEST_ASSERT_TRUE(s.defauts() & DEF_SSR_COLLE);
 }
 
+void test_redescente_pilotee_chauffe_de_freinage_pas_ssr_colle() {
+    // En REFROIDISSEMENT, une remontée du couvain PENDANT une chauffe commandée (freinage
+    // de la redescente) n'est pas un SSR collé.
+    Securite s;
+    uint32_t t = 0;
+    ContexteSecurite c = ctx_cycle(true);
+    c.refroidissement = true;
+    evaluer_pendant(s, mesures(40.0f, 41.0f), c, t, defauts::REFROID_GRACE_COUVAIN_MIN * MIN);
+    evaluer_pendant(s, mesures(39.5f, 41.0f), c, t, 2 * MIN);
+    evaluer_pendant(s, mesures(40.2f, 41.0f), c, t, 2 * MIN);
+    TEST_ASSERT_EQUAL_UINT32(0, s.defauts() & DEF_SSR_COLLE);
+    TEST_ASSERT_TRUE(s.autorise_chauffe());
+}
+
 // --- Acquittement ------------------------------------------------------------------------------------
 
 void test_acquittement_surtemp_exige_retour_sous_limite() {
@@ -432,6 +446,7 @@ int main(int, char**) {
     RUN_TEST(test_ssr_colle_air_qui_remonte);
     RUN_TEST(test_ssr_pas_de_faux_positif_si_decroissance);
     RUN_TEST(test_ssr_colle_en_refroidissement_couvain);
+    RUN_TEST(test_redescente_pilotee_chauffe_de_freinage_pas_ssr_colle);
     RUN_TEST(test_acquittement_surtemp_exige_retour_sous_limite);
     RUN_TEST(test_parametres_jamais_acquittes);
     RUN_TEST(test_regulation_sans_donnees_coupe);

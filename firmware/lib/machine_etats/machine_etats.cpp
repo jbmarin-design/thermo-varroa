@@ -85,7 +85,7 @@ void MachineEtats::ventilos(Sorties& s, uint8_t pct_toit, uint8_t pct_plancher) 
     s.pwm_pct[VENTILO_PLANCHER_B] = pct_plancher;
 }
 
-bool MachineEtats::regler(const Mesures& m) {
+bool MachineEtats::regler(const Mesures& m, float consigne) {
     EntreeRegulation e;
     bool embases_ok = true;
     for (uint8_t i = 0; i < NB_EMBASES; ++i) embases_ok = embases_ok && m.embases[i].conforme;
@@ -96,7 +96,7 @@ bool MachineEtats::regler(const Mesures& m) {
     // Limite air : on prend le PIRE de la valeur filtrée et de la valeur brute. Le filtre
     // médian 5 points retarde de ~4 s, inacceptable avec 1 °C de marge sous la coupure C4.
     e.t_air = (m.t_air.t_brute > m.t_air.t) ? m.t_air.t_brute : m.t_air.t;
-    e.consigne = p_.consigne;
+    e.consigne = consigne;
     e.hyst_bas = p_.hyst_bas;
     e.hyst_haut = p_.hyst_haut;
     const bool d = reg_.calculer(e);
@@ -192,6 +192,16 @@ Sorties MachineEtats::pas(const Mesures& m, const Commandes& cmd, Securite& secu
                     fen_ms_ = fen_chauffe_ms_ = 0;
                     fen_tmin_debut_ = m.t_couvain_min;
                     resume_ = ResumeCycle();
+                    // État de départ, cible de la redescente pilotée.
+                    resume_.t_couvain_init = 0.5f * (m.t_couvain_min + m.t_couvain_max);
+                    resume_.hr_init = m.sht_valide ? m.sht_hr : -1.0f;
+                    {
+                        float cible = resume_.t_couvain_init;
+                        if (cible < defauts::T_RETOUR_MIN) cible = defauts::T_RETOUR_MIN;
+                        if (cible > defauts::T_FIN_REFROID) cible = defauts::T_FIN_REFROID;
+                        resume_.t_retour_cible = cible;
+                    }
+                    descente_init_ = false;
                     cycle_en_cours_ = true;
                     aller(Etat::MONTEE, maintenant_ms);
                 } else {
@@ -246,7 +256,22 @@ Sorties MachineEtats::pas(const Mesures& m, const Commandes& cmd, Securite& secu
 
         case Etat::REFROIDISSEMENT: {
             const uint32_t depuis = maintenant_ms - entree_etat_ms_;
-            if (m.nb_couvain_valides > 0 && m.t_couvain_max <= defauts::T_FIN_REFROID) {
+            const float cible = resume_.t_retour_cible;
+            if (!descente_init_) {
+                // Début de rampe : jamais au-dessus de la sonde la plus froide (arrêt
+                // opérateur en montée : on ne réchauffe pas pour redescendre ensuite).
+                descente_debut_ = p_.consigne;
+                if (m.couvain_complet && m.t_couvain_min < descente_debut_) descente_debut_ = m.t_couvain_min;
+                if (descente_debut_ < cible) descente_debut_ = cible;
+                descente_init_ = true;
+                reg_.reinitialiser();  // le TOR repart à 0 : pas de réchauffe à l'entrée de la descente
+            }
+            const float ecoule_min = static_cast<float>(depuis) / static_cast<float>(MIN_MS);
+            float c = descente_debut_ - defauts::PENTE_DESCENTE_C_MIN * ecoule_min;
+            if (c < cible) c = cible;
+            consigne_courante_ = c;
+            if (c <= cible && m.nb_couvain_valides > 0 &&
+                m.t_couvain_max <= cible + defauts::MARGE_FIN_DESCENTE) {
                 aller(Etat::FIN, maintenant_ms);
             } else if (depuis >= defauts::TIMEOUT_REFROID_MIN * MIN_MS) {
                 // Pas de remontée détectée (sinon `securite` aurait posé DEF_SSR_COLLE) : décroissance lente.
@@ -287,16 +312,24 @@ Sorties MachineEtats::pas(const Mesures& m, const Commandes& cmd, Securite& secu
         case Etat::MONTEE:
         case Etat::PALIER: {
             ventilos(s, p_.pwm_toit_pct, p_.pwm_plancher_pct);
-            const bool demande = regler(m);
+            consigne_courante_ = p_.consigne;
+            const bool demande = regler(m, p_.consigne);
             s.chauffe = demande && secu.autorise_chauffe();
             break;
         }
-        case Etat::REFROIDISSEMENT:
-            reg_.reinitialiser();
-            if (maintenant_ms - entree_etat_ms_ < defauts::BRASSAGE_REFROID_MIN * MIN_MS) {
-                ventilos(s, defauts::PWM_BRASSAGE_PCT, defauts::PWM_BRASSAGE_PCT);
+        case Etat::REFROIDISSEMENT: {
+            // Redescente pilotée : brassage permanent, chauffe uniquement pour freiner
+            // la descente sous la consigne en rampe (TOR sur la sonde la plus froide).
+            ventilos(s, p_.pwm_toit_pct, p_.pwm_plancher_pct);
+            if (!descente_init_) {
+                // Pas d'entrée dans l'état : la rampe est initialisée au pas suivant ; pas de chauffe.
+                reg_.reinitialiser();
+                break;
             }
+            const bool demande = regler(m, consigne_courante_);
+            s.chauffe = demande && secu.autorise_chauffe();
             break;
+        }
         case Etat::DEFAUT:
             reg_.reinitialiser();
             if (secu.brassage_requis()) ventilos(s, defauts::PWM_BRASSAGE_PCT, defauts::PWM_BRASSAGE_PCT);

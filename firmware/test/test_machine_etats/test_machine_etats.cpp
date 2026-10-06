@@ -177,15 +177,17 @@ void test_cycle_nominal_complet() {
     b.tourner(m, 1 * MIN + PAS_MS);
     TEST_ASSERT_EQUAL(Etat::REFROIDISSEMENT, b.machine.etat());
     TEST_ASSERT_FALSE(b.s.chauffe);
-    TEST_ASSERT_EQUAL_UINT8(defauts::PWM_BRASSAGE_PCT, b.s.pwm_pct[VENTILO_TOIT]);
+    // Redescente pilotée : brassage permanent aux réglages du cycle.
+    TEST_ASSERT_EQUAL_UINT8(80, b.s.pwm_pct[VENTILO_TOIT]);
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 34.0f, b.machine.resume().t_retour_cible);  // couvain au départ
 
-    // Brassage 15 min puis ventilateurs arrêtés ; décroissance régulière.
-    float t = 42.0f;
-    for (int i = 0; i < 40 * 30 && b.machine.etat() == Etat::REFROIDISSEMENT; ++i) {
-        t -= 0.01f;
+    // Le couvain suit la rampe en restant 0,3 °C au-dessus de la consigne : jamais de chauffe.
+    for (int i = 0; i < 150 * 30 && b.machine.etat() == Etat::REFROIDISSEMENT; ++i) {
+        const float t = b.machine.consigne_courante() + 0.3f;
         m = mesures(t, t);
         b.pas(m);
-        if (i == 16 * 30) TEST_ASSERT_EQUAL_UINT8(0, b.s.pwm_pct[VENTILO_TOIT]);  // après 16 min
+        TEST_ASSERT_FALSE(b.s.chauffe);
+        if (b.machine.etat() == Etat::REFROIDISSEMENT) TEST_ASSERT_EQUAL_UINT8(80, b.s.pwm_pct[VENTILO_TOIT]);
     }
     TEST_ASSERT_EQUAL(Etat::FIN, b.machine.etat());
     TEST_ASSERT_TRUE(b.machine.resume().palier_complet);
@@ -304,6 +306,35 @@ void test_arret_operateur_en_montee() {
     b.pas(m, c);
     TEST_ASSERT_EQUAL(Etat::REFROIDISSEMENT, b.machine.etat());
     TEST_ASSERT_FALSE(b.s.chauffe);
+}
+
+void test_redescente_pilotee_freine_et_suit_la_rampe() {
+    Banc b;
+    Mesures m = mesures(34.0f, 38.0f);
+    b.demarrer(m);
+    m = mesures(42.1f, 43.0f);
+    b.tourner(m, 5 * MIN + PAS_MS);
+    b.tourner(m, 120 * MIN + PAS_MS);
+    TEST_ASSERT_EQUAL(Etat::REFROIDISSEMENT, b.machine.etat());
+    // Après 20 min, la consigne a baissé d'environ 2 °C (0,1 °C/min).
+    b.tourner(mesures(41.0f, 41.0f), 20 * MIN);
+    TEST_ASSERT_FLOAT_WITHIN(0.1f, 42.1f - 2.0f, b.machine.consigne_courante());
+    // Couvain qui chute plus vite que la rampe : la chauffe freine.
+    b.pas(mesures(39.0f, 39.0f));
+    TEST_ASSERT_TRUE(b.s.chauffe);
+    // Couvain au-dessus de la consigne : pas de chauffe.
+    b.pas(mesures(40.6f, 40.6f));
+    TEST_ASSERT_FALSE(b.s.chauffe);
+    // La consigne ne descend jamais sous la cible (couvain de départ, 34 °C).
+    b.tourner(mesures(40.6f, 40.6f), 120 * MIN);
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 34.0f, b.machine.consigne_courante());
+}
+
+void test_redescente_cible_bornee_a_33_sur_banc_froid() {
+    Banc b;
+    b.demarrer(mesures(20.0f, 20.0f));               // banc à vide, local à 20 °C
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, defauts::T_RETOUR_MIN, b.machine.resume().t_retour_cible);
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 20.0f, b.machine.resume().t_couvain_init);
 }
 
 void test_refroidissement_timeout_avertissement() {
@@ -479,6 +510,8 @@ int main(int, char**) {
     RUN_TEST(test_homogeneite_insuffisante);
     RUN_TEST(test_arret_operateur_en_montee);
     RUN_TEST(test_refroidissement_timeout_avertissement);
+    RUN_TEST(test_redescente_pilotee_freine_et_suit_la_rampe);
+    RUN_TEST(test_redescente_cible_bornee_a_33_sur_banc_froid);
     RUN_TEST(test_regulation_sur_la_plus_froide);
     RUN_TEST(test_hysteresis_tor);
     RUN_TEST(test_limite_air_coupe_la_chauffe_sans_defaut);

@@ -26,6 +26,8 @@
 | D15 | Cadres de rive | **Laissés en place** pendant le traitement : objectif de pose avec un minimum de manipulations et chauffe uniforme de toute la ruche. Le surcroît de masse thermique (réserves) est intégré au dimensionnement. |
 | D16 | CO₂ | **Mesure de référence uniquement**, sur le prototype lors des **premiers essais avec abeilles** (le CO₂ n'a pas de sens à vide). Pas de trappe pilotée : aération constante par la porte Nicot. Pas d'alerte bloquante tant que des seuils n'ont pas été établis par la mesure. Le capteur n'est pas prévu en série à ce stade (coût). |
 | D17 | Réintroduction de la reine | Conduite apicole classique (cage d'introduction selon les pratiques habituelles) : hors du périmètre du système. |
+| D19 | Redescente | **Pilotée** en rampe vers l'état de départ (température de couvain relevée au début du cycle), pour ménager la colonie. |
+| D20 | Critère d'équilibre entrée/sortie d'air | **Non retenu comme condition** : le démarrage du chrono reste « les 5 sondes couvain ≥ 42,0 °C pendant 5 min », mesure directe du couvain. L'écart air soufflé / air de retour est journalisé comme indicateur. |
 | D18 | Identification des ruches | Pas de QR code propre au projet pour l'instant. Piste pour la Phase 4 : **se greffer sur l'identification par code-barres déjà utilisée par l'apiculteur ou par des logiciels de gestion de rucher** (scan de la ruche → association du traitement). |
 
 ### Base scientifique des consignes
@@ -292,8 +294,9 @@ Valeurs par défaut des paramètres (toutes paramétrables **dans des bornes fig
 | `PENTE_RAMPE` | ~0,35 °C/min sur la consigne | montée en ~20 min une fois l'air à température (cf. Sandrock et al.) ; la durée réelle dépend de la masse thermique |
 | `DUREE_PALIER` | 120 min (borne 90–150) | temps **cumulé** avec toutes les sondes couvain ≥ `T_PALIER_MIN` |
 | `TIMEOUT_MONTEE` | 150 min | au-delà : « palier non atteint » |
-| `T_FIN_REFROID` | 37,0 °C | fin du refroidissement |
-| `TIMEOUT_REFROID` | 90 min | |
+| `PENTE_DESCENTE` | 0,10 °C/min | redescente pilotée (D19) **[H]** |
+| Cible de retour | T couvain au départ, bornée [33,0 ; 37,0] °C | FIN quand la cible est atteinte (Tmax ≤ cible + 1 °C) |
+| `TIMEOUT_REFROID` | 180 min | |
 | `DUREE_CHAUFFE_MAX` | 6 h | durée absolue max chauffe active, toutes phases |
 | `ECART_SONDES_MAX` | 3,0 °C en palier | incohérence entre sondes couvain **[H]** à ajuster en Ph.1 |
 
@@ -315,7 +318,7 @@ stateDiagram-v2
     MONTEE --> DEFAUT : timeout montée (palier non atteint)
     PALIER --> REFROID : temps cumulé ≥ DUREE_PALIER
     PALIER --> DEFAUT : palier perdu > 30 min cumulées
-    REFROID --> FIN : T couvain max ≤ 37 °C ou timeout sans anomalie
+    REFROID --> FIN : cible de retour atteinte ou timeout sans anomalie
     REFROID --> DEFAUT : T monte sans chauffe (SSR collé)
     MONTEE --> DEFAUT : défaut sécurité
     PALIER --> DEFAUT : défaut sécurité
@@ -343,8 +346,9 @@ stateDiagram-v2
 - Chute sous 42,0 °C : comptage suspendu, régulation continue ; si le temps cumulé hors plage dépasse 30 min → DÉFAUT « palier perdu » (traitement déclaré incomplet).
 - T couvain max > 43,5 °C : chauffe forcée à 0 jusqu'à retour < 43,0 °C (non bloquant, journalisé). Si cette limitation empêche durablement la plus froide d'atteindre 42,0 °C → DÉFAUT « homogénéité insuffisante ».
 
-**REFROIDISSEMENT** — chauffe interdite, ventilateur en brassage pendant 15 min puis arrêté (la colonie reprend la main). Vérifie que la chaleur décroît réellement.
-- → FIN : T couvain max ≤ 37,0 °C, ou `TIMEOUT_REFROID` atteint avec décroissance constatée (avertissement journalisé).
+**REFROIDISSEMENT — redescente pilotée (D19)** — la consigne descend en rampe (0,1 °C/min **[H]**) depuis la consigne de palier jusqu'à la **température de couvain relevée au départ du cycle** (bornée à [33 ; 37] °C). Ventilation maintenue tout du long ; la chauffe ne sert qu'à **freiner** la descente si le couvain refroidit plus vite que la rampe (tout-ou-rien sur la sonde la plus froide, limites C1/C2 toujours actives). En cas d'arrêt opérateur avant le palier, la rampe part de la sonde la plus froide : jamais de réchauffe pour redescendre ensuite. L'hygrométrie de départ est relevée et journalisée (pas d'actionneur d'humidité : la redescente est pilotée en température seulement).
+- → FIN : consigne arrivée à la cible et Tmax couvain ≤ cible + 1 °C, ou `TIMEOUT_REFROID` (180 min) atteint avec décroissance constatée (avertissement journalisé).
+- La détection « SSR collé » sur le couvain ne s'applique que lorsque la chauffe n'est pas commandée.
 - → DÉFAUT : T couvain ou T air **monte** de plus de 0,5 °C en 10 min alors que la commande est à 0 → SSR collé présumé ; le nœud ouvre aussi le relais de sécurité série.
 
 **FIN** — chauffe interdite, résumé de cycle écrit (durée montée, temps cumulé de palier, T max atteintes par sonde, énergie estimée, défauts/avertissements), LED verte fixe. Attend un acquittement local pour revenir en ATTENTE (**aucun redémarrage automatique**).

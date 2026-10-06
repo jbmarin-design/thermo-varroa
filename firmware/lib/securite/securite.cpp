@@ -114,8 +114,10 @@ void Securite::evaluer(const Mesures& m, const ContexteSecurite& c, uint32_t mai
             air_min_off_ = 1000.0f;  // ventilateurs arrêtés : l'air stagnant n'est pas représentatif
         }
     }
-    // (b) REFROIDISSEMENT : sonde couvain la plus chaude qui remonte (ventilateurs arrêtés ou non).
-    if (c.refroidissement) {
+    // (b) REFROIDISSEMENT : sonde couvain la plus chaude qui remonte alors que la chauffe
+    //     n'est PAS commandée. La redescente pilotée peut chauffer pour freiner : toute
+    //     commande de chauffe réarme le délai de grâce et le minimum de référence.
+    if (c.refroidissement && !c.ssr_commande) {
         refroid_ms_ += dt;
         if (refroid_ms_ >= defauts::REFROID_GRACE_COUVAIN_MIN * 60u * 1000u && m.nb_couvain_valides > 0) {
             if (m.t_couvain_max < couvain_min_refroid_) couvain_min_refroid_ = m.t_couvain_max;

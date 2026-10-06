@@ -72,9 +72,18 @@ constexpr float    T_C4_MATERIEL        = 45.0f;  // seuil de la chaîne matéri
 constexpr uint32_t TIMEOUT_MONTEE_MIN       = 150;
 constexpr uint32_t TIMEOUT_MONTEE_BORNE_MIN = 60;
 constexpr uint32_t TIMEOUT_MONTEE_BORNE_MAX = 240;   // banc : masses thermiques lourdes [H]
-constexpr float    T_FIN_REFROID            = 37.0f;
-constexpr uint32_t TIMEOUT_REFROID_MIN      = 90;
-constexpr uint32_t BRASSAGE_REFROID_MIN     = 15;
+// --- Redescente pilotée (REFROIDISSEMENT) ---------------------------------------------
+// La consigne descend en rampe depuis la consigne de palier (ou depuis Tmin couvain si
+// arrêt opérateur avant le palier) jusqu'à la température de couvain relevée au départ
+// du cycle, bornée à [T_RETOUR_MIN ; T_FIN_REFROID]. La chauffe ne sert qu'à FREINER
+// le refroidissement (TOR sur la sonde la plus froide) ; les limites C1/C2 restent actives.
+// L'hygrométrie de départ est relevée et journalisée (aucun actionneur d'humidité).
+constexpr float    PENTE_DESCENTE_C_MIN     = 0.10f;  // °C/min [H] : 42 -> 35 °C en ~70 min
+constexpr float    T_RETOUR_MIN             = 33.0f;  // borne basse de la cible (banc à vide : ambiance froide)
+constexpr float    T_FIN_REFROID            = 37.0f;  // borne haute de la cible de retour
+constexpr float    MARGE_FIN_DESCENTE       = 1.0f;   // FIN quand Tmax couvain <= cible + marge
+constexpr uint32_t TIMEOUT_REFROID_MIN      = 180;    // rampe ~70–90 min + inertie
+constexpr uint32_t BRASSAGE_REFROID_MIN     = 15;     // (DÉFAUT) brassage après coupure
 constexpr uint32_t DUREE_CHAUFFE_MAX_MIN    = 6u * 60u;  // absolue, toutes phases
 
 // --- Plausibilité des sondes -----------------------------------------------------

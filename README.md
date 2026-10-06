@@ -40,7 +40,7 @@ Traitement thermique anti-varroa pour ruches Nicot (plastique, fond grillagé) �
 | [`hardware/plancher-phase1.md`](hardware/plancher-phase1.md) | Fermeture du plancher Nicot, soufflantes dans 16 mm, **cotes à relever** |
 | [`hardware/peignes-sondes.md`](hardware/peignes-sondes.md) | Peignes de sondes, connecteurs M8, étalonnage à 42 °C |
 | [`hardware/cablage-phase1.md`](hardware/cablage-phase1.md) | Câblage 230 V / 12 V, chaîne de sécurité, brochage ESP32 |
-| [`firmware/`](firmware/) | Code ESP32 + 80 tests unitaires (voir [`firmware/README.md`](firmware/README.md)) |
+| [`firmware/`](firmware/) | Code ESP32 + 83 tests unitaires (voir [`firmware/README.md`](firmware/README.md)) |
 | [`tests/protocole-phase1.md`](tests/protocole-phase1.md) | Protocole de test à vide, essais E0 à E13 |
 | [`docs/journal-tests.md`](docs/journal-tests.md) | Résultats des essais (à remplir) |
 
